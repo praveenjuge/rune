@@ -26,8 +26,17 @@
  * ```
  */
 
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { App } from './App';
 import './index.css';
 
-console.log(
-  '👋 This message is being logged by "renderer.ts", included via Vite',
+const rootElement = document.getElementById('root');
+
+if (!rootElement) {
+  throw new Error('Root element not found. Ensure index.html has #root.');
+}
+
+createRoot(rootElement).render(
+  React.createElement(React.StrictMode, null, React.createElement(App)),
 );
