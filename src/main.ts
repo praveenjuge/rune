@@ -23,6 +23,8 @@ if (started) {
   app.quit();
 }
 
+app.setName('Rune');
+
 protocol.registerSchemesAsPrivileged([
   {
     scheme: RUNE_PROTOCOL,
@@ -373,7 +375,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle(IPC_CHANNELS.getBootstrap, async () => {
     const settings = await loadSettings();
-    const defaultLibraryPath = path.join(app.getPath('documents'), 'rune');
+    const defaultLibraryPath = path.join(app.getPath('documents'), 'Rune');
     return { settings, defaultLibraryPath };
   });
 
