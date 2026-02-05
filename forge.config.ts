@@ -6,29 +6,30 @@ import { MakerRpm } from '@electron-forge/maker-rpm';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
+import { PublisherGithub } from '@electron-forge/publisher-github';
 import fs from 'node:fs';
 import path from 'node:path';
 
 // Copy native modules to the .vite/build directory
 function copyNativeModules(buildPath: string) {
   const nativeModules = ['better-sqlite3'];
-  
+
   for (const moduleName of nativeModules) {
     const srcDir = path.join(__dirname, 'node_modules', moduleName);
     const destDir = path.join(buildPath, 'node_modules', moduleName);
-    
+
     if (fs.existsSync(srcDir)) {
       fs.cpSync(srcDir, destDir, { recursive: true });
       console.log(`Copied ${moduleName} to ${destDir}`);
     }
   }
-  
+
   // Also copy bindings module (dependency of better-sqlite3)
   const bindingsModules = ['bindings', 'file-uri-to-path'];
   for (const moduleName of bindingsModules) {
     const srcDir = path.join(__dirname, 'node_modules', moduleName);
     const destDir = path.join(buildPath, 'node_modules', moduleName);
-    
+
     if (fs.existsSync(srcDir)) {
       fs.cpSync(srcDir, destDir, { recursive: true });
       console.log(`Copied ${moduleName} to ${destDir}`);
@@ -48,6 +49,16 @@ const config: ForgeConfig = {
     new MakerZIP({}, ['darwin']),
     new MakerRpm({}),
     new MakerDeb({}),
+  ],
+  publishers: [
+    new PublisherGithub({
+      repository: {
+        owner: process.env.GITHUB_REPOSITORY_OWNER || 'praveenjuge',
+        name: 'rune',
+      },
+      prerelease: false,
+      draft: false,
+    }),
   ],
   hooks: {
     packageAfterCopy: async (_config, buildPath) => {
