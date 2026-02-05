@@ -6,6 +6,7 @@ import type {
   LibrarySettings,
   OllamaStatus,
   SearchCursor,
+  UpdateStatus,
 } from "@/shared/library";
 import { SEARCH_PAGE_SIZE } from "@/shared/library";
 
@@ -36,6 +37,12 @@ export function useAppState() {
   const [isDownloadingOllama, setIsDownloadingOllama] = useState(false);
   const [isDownloadingModel, setIsDownloadingModel] = useState(false);
   const [isRestartingOllama, setIsRestartingOllama] = useState(false);
+
+  // Auto-update state
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
+    state: "idle",
+  });
+  const [currentVersion, setCurrentVersion] = useState<string>("");
 
   const resetResults = () => {
     // This will be called by the search hook
@@ -206,6 +213,16 @@ export function useAppState() {
     }
   };
 
+  // Auto-update handlers
+  const handleCheckForUpdates = async () => {
+    setUpdateStatus({ state: "checking" });
+    await window.rune.checkForUpdates();
+  };
+
+  const handleInstallUpdate = async () => {
+    await window.rune.installUpdate();
+  };
+
   // Set up event listeners for Ollama progress and tag updates
   useEffect(() => {
     const unsubOllama = window.rune.onOllamaDownloadProgress((progress) => {
@@ -230,9 +247,21 @@ export function useAppState() {
       }
     });
 
+    // Listen for update status changes
+    const unsubUpdate = window.rune.onUpdateStatus((status) => {
+      setUpdateStatus(status);
+    });
+
+    // Load current version
+    window.rune.getVersion().then(setCurrentVersion);
+
+    // Load initial update status
+    window.rune.getUpdateStatus().then(setUpdateStatus);
+
     return () => {
       unsubOllama();
       unsubModel();
+      unsubUpdate();
     };
   }, []);
 
@@ -257,6 +286,8 @@ export function useAppState() {
     isDownloadingOllama,
     isDownloadingModel,
     isRestartingOllama,
+    updateStatus,
+    currentVersion,
     setStatus,
     setIsConfigOpen,
     resetResults,
@@ -271,6 +302,8 @@ export function useAppState() {
     handleRestartOllama,
     handleDeleteOllamaModel,
     handleDeleteOllamaBinary,
+    handleCheckForUpdates,
+    handleInstallUpdate,
   };
 }
 

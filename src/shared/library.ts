@@ -103,6 +103,16 @@ export type ImageTagsUpdated = {
   aiTagStatus: AiTagStatus;
 };
 
+// Auto-update types
+export type UpdateState = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'error' | 'not-available';
+
+export type UpdateStatus = {
+  state: UpdateState;
+  version?: string;
+  error?: string;
+  releaseNotes?: string;
+};
+
 export const IPC_CHANNELS = {
   getBootstrap: "rune:get-bootstrap",
   selectLibrary: "rune:select-library",
@@ -120,6 +130,11 @@ export const IPC_CHANNELS = {
   // Tagging channels
   getTaggingQueueStatus: "rune:tagging-queue-status",
   retryTagging: "rune:retry-tagging",
+  // Auto-update channels
+  updateCheck: "rune:update-check",
+  updateInstall: "rune:update-install",
+  updateGetStatus: "rune:update-get-status",
+  updateGetVersion: "rune:update-get-version",
 } as const;
 
 export const IPC_EVENTS = {
@@ -127,6 +142,7 @@ export const IPC_EVENTS = {
   modelDownloadProgress: "rune:model-download-progress",
   taggingProgress: "rune:tagging-progress",
   imageTagsUpdated: "rune:image-tags-updated",
+  updateStatus: "rune:update-status",
 } as const;
 
 export function isSupportedImage(filePath: string): boolean {

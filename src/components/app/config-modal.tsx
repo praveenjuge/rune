@@ -19,7 +19,7 @@ import {
   DialogHeader,
 } from "@/components/ui/dialog";
 import { OLLAMA_MODEL } from "@/shared/library";
-import type { DownloadProgress, OllamaStatus } from "@/shared/library";
+import type { DownloadProgress, OllamaStatus, UpdateStatus } from "@/shared/library";
 
 export function ConfigModal({
   isOpen,
@@ -34,6 +34,8 @@ export function ConfigModal({
   isDownloadingModel,
   isRestartingOllama,
   showWelcome,
+  updateStatus,
+  currentVersion,
   onClose,
   onChooseFolder,
   onSave,
@@ -42,6 +44,8 @@ export function ConfigModal({
   onRestartOllama,
   onDeleteOllamaModel,
   onDeleteOllamaBinary,
+  onCheckForUpdates,
+  onInstallUpdate,
 }: {
   isOpen: boolean;
   libraryPath: string;
@@ -55,6 +59,8 @@ export function ConfigModal({
   isDownloadingModel: boolean;
   isRestartingOllama: boolean;
   showWelcome: boolean;
+  updateStatus: UpdateStatus;
+  currentVersion: string;
   onClose: () => void;
   onChooseFolder: () => void;
   onSave: () => void;
@@ -63,6 +69,8 @@ export function ConfigModal({
   onRestartOllama: () => void;
   onDeleteOllamaModel: () => void;
   onDeleteOllamaBinary: () => void;
+  onCheckForUpdates: () => void;
+  onInstallUpdate: () => void;
 }) {
   const { theme, setTheme } = useTheme();
 
@@ -164,6 +172,19 @@ export function ConfigModal({
                 <Moon className="h-4 w-4" />
               </Button>
             </div>
+          </div>
+
+          {/* App Updates */}
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground">
+              App Updates
+            </label>
+            <AppUpdateSection
+              updateStatus={updateStatus}
+              currentVersion={currentVersion}
+              onCheckForUpdates={onCheckForUpdates}
+              onInstallUpdate={onInstallUpdate}
+            />
           </div>
         </div>
 
@@ -363,6 +384,113 @@ function OllamaModelSetup({
       >
         <Trash2 className="h-3.5 w-3.5" />
       </Button>
+    </div>
+  );
+}
+
+function AppUpdateSection({
+  updateStatus,
+  currentVersion,
+  onCheckForUpdates,
+  onInstallUpdate,
+}: {
+  updateStatus: UpdateStatus;
+  currentVersion: string;
+  onCheckForUpdates: () => void;
+  onInstallUpdate: () => void;
+}) {
+  const isChecking = updateStatus.state === "checking";
+  const isDownloading = updateStatus.state === "downloading";
+  const isDownloaded = updateStatus.state === "downloaded";
+  const hasError = updateStatus.state === "error";
+  const isAvailable = updateStatus.state === "available";
+  const isNotAvailable = updateStatus.state === "not-available";
+
+  return (
+    <div className="flex items-center justify-between p-2 rounded-md border bg-muted/20">
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-muted-foreground">
+          v{currentVersion || "..."}
+        </span>
+
+        {isDownloaded && (
+          <Badge className="bg-green-500 text-white hover:bg-green-500">
+            Update Ready
+          </Badge>
+        )}
+
+        {isAvailable && (
+          <Badge className="bg-blue-500 text-white hover:bg-blue-500">
+            Update Available
+          </Badge>
+        )}
+
+        {isNotAvailable && (
+          <Badge variant="outline" className="text-xs">
+            Up to date
+          </Badge>
+        )}
+
+        {hasError && (
+          <span className="text-xs text-destructive" title={updateStatus.error}>
+            Update check failed
+          </span>
+        )}
+      </div>
+
+      <div className="flex items-center gap-1">
+        {(isChecking || isDownloading) && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>{isDownloading ? "Downloading..." : "Checking..."}</span>
+          </div>
+        )}
+
+        {updateStatus.state === "idle" && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onCheckForUpdates}
+            className="h-7 px-2"
+          >
+            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+            Check
+          </Button>
+        )}
+
+        {isNotAvailable && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onCheckForUpdates}
+            className="h-7 px-2"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+          </Button>
+        )}
+
+        {hasError && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onCheckForUpdates}
+            className="h-7 px-2"
+          >
+            Retry
+          </Button>
+        )}
+
+        {isDownloaded && (
+          <Button
+            size="sm"
+            onClick={onInstallUpdate}
+            className="h-7 px-2"
+          >
+            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+            Restart & Update
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

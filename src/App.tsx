@@ -30,6 +30,8 @@ export function App() {
     isDownloadingOllama,
     isDownloadingModel,
     isRestartingOllama,
+    updateStatus,
+    currentVersion,
     setStatus,
     setIsConfigOpen,
     resetResults,
@@ -44,6 +46,8 @@ export function App() {
     handleRestartOllama,
     handleDeleteOllamaModel,
     handleDeleteOllamaBinary,
+    handleCheckForUpdates,
+    handleInstallUpdate,
   } = useAppState();
 
   const {
@@ -129,6 +133,8 @@ export function App() {
           isDownloadingModel={isDownloadingModel}
           isRestartingOllama={isRestartingOllama}
           showWelcome={!settings}
+          updateStatus={updateStatus}
+          currentVersion={currentVersion}
           onClose={() => setIsConfigOpen(false)}
           onChooseFolder={handleSelectLibrary}
           onSave={handleSaveSettings}
@@ -137,6 +143,8 @@ export function App() {
           onRestartOllama={handleRestartOllama}
           onDeleteOllamaModel={handleDeleteOllamaModel}
           onDeleteOllamaBinary={handleDeleteOllamaBinary}
+          onCheckForUpdates={handleCheckForUpdates}
+          onInstallUpdate={handleInstallUpdate}
         />
       ) : null}
     </div>

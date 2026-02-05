@@ -33,6 +33,13 @@ import {
   saveSettings,
 } from './main/db';
 import { ollamaManager, taggingQueue } from './main/ollama';
+import {
+  initAutoUpdater,
+  checkForUpdates,
+  installUpdate,
+  getUpdateStatus,
+  getCurrentVersion,
+} from './main/updater';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -90,6 +97,11 @@ const createWindow = () => {
 
   // Open the DevTools.
   mainWindow.webContents.openDevTools();
+
+  // Initialize auto-updater
+  initAutoUpdater(mainWindow);
+
+  return mainWindow;
 };
 
 const RUNE_FOLDER_NAME = 'Rune';
@@ -495,6 +507,23 @@ app.whenReady().then(async () => {
       }
     },
   );
+
+  // Auto-update IPC handlers
+  ipcMain.handle(IPC_CHANNELS.updateCheck, async () => {
+    checkForUpdates();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.updateInstall, async () => {
+    installUpdate();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.updateGetStatus, async () => {
+    return getUpdateStatus();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.updateGetVersion, async () => {
+    return getCurrentVersion();
+  });
 
   // Now create the window after all IPC handlers are registered
   createWindow();

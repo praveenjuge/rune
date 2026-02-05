@@ -6,6 +6,7 @@ import {
   type SearchImagesInput,
   type DownloadProgress,
   type ImageTagsUpdated,
+  type UpdateStatus,
 } from './shared/library';
 
 contextBridge.exposeInMainWorld('rune', {
@@ -32,6 +33,12 @@ contextBridge.exposeInMainWorld('rune', {
   getTaggingQueueStatus: () => ipcRenderer.invoke(IPC_CHANNELS.getTaggingQueueStatus),
   retryTagging: (imageId: string) => ipcRenderer.invoke(IPC_CHANNELS.retryTagging, imageId),
   
+  // Auto-update APIs
+  checkForUpdates: () => ipcRenderer.invoke(IPC_CHANNELS.updateCheck),
+  installUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.updateInstall),
+  getUpdateStatus: () => ipcRenderer.invoke(IPC_CHANNELS.updateGetStatus),
+  getVersion: () => ipcRenderer.invoke(IPC_CHANNELS.updateGetVersion),
+  
   // Event listeners
   onOllamaDownloadProgress: (callback: (progress: DownloadProgress) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, progress: DownloadProgress) => callback(progress);
@@ -47,5 +54,10 @@ contextBridge.exposeInMainWorld('rune', {
     const listener = (_event: Electron.IpcRendererEvent, update: ImageTagsUpdated) => callback(update);
     ipcRenderer.on(IPC_EVENTS.imageTagsUpdated, listener);
     return () => ipcRenderer.removeListener(IPC_EVENTS.imageTagsUpdated, listener);
+  },
+  onUpdateStatus: (callback: (status: UpdateStatus) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, status: UpdateStatus) => callback(status);
+    ipcRenderer.on(IPC_EVENTS.updateStatus, listener);
+    return () => ipcRenderer.removeListener(IPC_EVENTS.updateStatus, listener);
   },
 });
