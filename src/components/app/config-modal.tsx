@@ -8,6 +8,7 @@ import {
   RefreshCw,
   Sparkles,
   Sun,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +41,8 @@ export function ConfigModal({
   onDownloadOllama,
   onDownloadModel,
   onRestartOllama,
+  onDeleteOllamaModel,
+  onDeleteOllamaBinary,
 }: {
   isOpen: boolean;
   libraryPath: string;
@@ -59,6 +62,8 @@ export function ConfigModal({
   onDownloadOllama: () => void;
   onDownloadModel: () => void;
   onRestartOllama: () => void;
+  onDeleteOllamaModel: () => void;
+  onDeleteOllamaBinary: () => void;
 }) {
   const { theme, setTheme } = useTheme();
 
@@ -99,21 +104,33 @@ export function ConfigModal({
             </div>
           </div>
 
-          {/* AI Tagging */}
+          {/* Ollama Binary */}
           <div className="space-y-2">
             <label className="text-xs font-medium text-muted-foreground">
-              AI Tagging
+              Ollama Binary
             </label>
-            <OllamaSetup
+            <OllamaBinarySetup
               status={ollamaStatus}
               ollamaProgress={ollamaProgress}
-              modelProgress={modelProgress}
               isDownloadingOllama={isDownloadingOllama}
-              isDownloadingModel={isDownloadingModel}
               isRestartingOllama={isRestartingOllama}
               onDownloadOllama={onDownloadOllama}
-              onDownloadModel={onDownloadModel}
               onRestartOllama={onRestartOllama}
+              onDeleteOllamaBinary={onDeleteOllamaBinary}
+            />
+          </div>
+
+          {/* AI Model */}
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground">
+              AI Model
+            </label>
+            <OllamaModelSetup
+              status={ollamaStatus}
+              modelProgress={modelProgress}
+              isDownloadingModel={isDownloadingModel}
+              onDownloadModel={onDownloadModel}
+              onDeleteOllamaModel={onDeleteOllamaModel}
             />
           </div>
 
@@ -179,26 +196,22 @@ export function ConfigModal({
   );
 }
 
-function OllamaSetup({
+function OllamaBinarySetup({
   status,
   ollamaProgress,
-  modelProgress,
   isDownloadingOllama,
-  isDownloadingModel,
   isRestartingOllama,
   onDownloadOllama,
-  onDownloadModel,
   onRestartOllama,
+  onDeleteOllamaBinary,
 }: {
   status: OllamaStatus;
   ollamaProgress: DownloadProgress | null;
-  modelProgress: DownloadProgress | null;
   isDownloadingOllama: boolean;
-  isDownloadingModel: boolean;
   isRestartingOllama: boolean;
   onDownloadOllama: () => void;
-  onDownloadModel: () => void;
   onRestartOllama: () => void;
+  onDeleteOllamaBinary: () => void;
 }) {
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return "0 B";
@@ -208,13 +221,13 @@ function OllamaSetup({
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
   };
 
-  // Ollama binary not installed
+  // Binary not installed
   if (!status.binaryInstalled && !isDownloadingOllama) {
     return (
       <div className="rounded-md border bg-muted/20 p-3 space-y-3">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm">Ollama not installed</span>
+          <span className="text-sm">Not installed</span>
         </div>
         <p className="text-xs text-muted-foreground">
           Download Ollama to enable AI-powered image tagging.
@@ -227,29 +240,149 @@ function OllamaSetup({
     );
   }
 
-  // Downloading Ollama binary
-  if (isDownloadingOllama && ollamaProgress) {
+  // Downloading binary
+  if (isDownloadingOllama) {
+    if (ollamaProgress) {
+      return (
+        <div className="rounded-md border bg-muted/20 p-3 space-y-3">
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            <span className="text-sm">Downloading...</span>
+          </div>
+          <Progress value={ollamaProgress.percent} />
+          <p className="text-xs text-muted-foreground">
+            {formatBytes(ollamaProgress.downloaded)} / {formatBytes(ollamaProgress.total)} ({ollamaProgress.percent}%)
+          </p>
+        </div>
+      );
+    }
     return (
       <div className="rounded-md border bg-muted/20 p-3 space-y-3">
         <div className="flex items-center gap-2">
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          <span className="text-sm">Downloading Ollama...</span>
+          <span className="text-sm">Starting download...</span>
         </div>
-        <Progress value={ollamaProgress.percent} />
+      </div>
+    );
+  }
+
+  // Binary installed
+  return (
+    <div className={`rounded-md border p-3 space-y-3 ${status.serverRunning ? 'border-green-500/30 bg-green-500/10' : 'bg-muted/20'}`}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Check className="h-4 w-4 text-green-500" />
+          <span className={`text-sm ${status.serverRunning ? 'text-green-700 dark:text-green-400' : ''}`}>
+            Installed
+          </span>
+          {status.serverRunning && (
+            <Badge variant="outline" className="text-xs gap-1 border-green-500/30 text-green-700 dark:text-green-400">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+              </span>
+              Running
+            </Badge>
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onRestartOllama}
+            disabled={isRestartingOllama}
+            className="h-7 px-2"
+            title="Restart"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${isRestartingOllama ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onDeleteOllamaBinary}
+            className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+            title="Uninstall"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Ollama server binary for running AI models.
+      </p>
+    </div>
+  );
+}
+
+function OllamaModelSetup({
+  status,
+  modelProgress,
+  isDownloadingModel,
+  onDownloadModel,
+  onDeleteOllamaModel,
+}: {
+  status: OllamaStatus;
+  modelProgress: DownloadProgress | null;
+  isDownloadingModel: boolean;
+  onDownloadModel: () => void;
+  onDeleteOllamaModel: () => void;
+}) {
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+  };
+
+  // Binary not installed - show disabled state
+  if (!status.binaryInstalled) {
+    return (
+      <div className="rounded-md border border-dashed bg-muted/10 p-3 space-y-3 opacity-60">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">Not available</span>
+        </div>
         <p className="text-xs text-muted-foreground">
-          {formatBytes(ollamaProgress.downloaded)} / {formatBytes(ollamaProgress.total)} ({ollamaProgress.percent}%)
+          Install Ollama binary first to download the AI model.
         </p>
       </div>
     );
   }
 
-  // Ollama installed but model not installed
-  if (status.binaryInstalled && !status.modelInstalled && !isDownloadingModel) {
+  // Downloading model
+  if (isDownloadingModel) {
+    if (modelProgress) {
+      return (
+        <div className="rounded-md border bg-muted/20 p-3 space-y-3">
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            <span className="text-sm">Downloading {OLLAMA_MODEL}...</span>
+          </div>
+          <Progress value={modelProgress.percent} />
+          <p className="text-xs text-muted-foreground">
+            {formatBytes(modelProgress.downloaded)} / {formatBytes(modelProgress.total)} ({modelProgress.percent}%)
+          </p>
+        </div>
+      );
+    }
     return (
       <div className="rounded-md border bg-muted/20 p-3 space-y-3">
         <div className="flex items-center gap-2">
-          <Check className="h-4 w-4 text-green-500" />
-          <span className="text-sm">Ollama installed</span>
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          <span className="text-sm">Starting download...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Model not installed
+  if (!status.modelInstalled) {
+    return (
+      <div className="rounded-md border bg-muted/20 p-3 space-y-3">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm">Not installed</span>
         </div>
         <p className="text-xs text-muted-foreground">
           Download the AI vision model ({OLLAMA_MODEL}) to start tagging images.
@@ -262,81 +395,38 @@ function OllamaSetup({
     );
   }
 
-  // Downloading model
-  if (isDownloadingModel && modelProgress) {
-    return (
-      <div className="rounded-md border bg-muted/20 p-3 space-y-3">
+  // Model installed
+  return (
+    <div className={`rounded-md border p-3 space-y-3 ${status.serverRunning ? 'border-green-500/30 bg-green-500/10' : 'bg-muted/20'}`}>
+      <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          <span className="text-sm">Downloading {OLLAMA_MODEL}...</span>
+          <Check className="h-4 w-4 text-green-500" />
+          <span className={`text-sm ${status.serverRunning ? 'text-green-700 dark:text-green-400' : ''}`}>
+            {OLLAMA_MODEL}
+          </span>
+          {status.serverRunning && (
+            <Badge variant="outline" className="text-xs gap-1 border-green-500/30 text-green-700 dark:text-green-400">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+              </span>
+              Running
+            </Badge>
+          )}
         </div>
-        <Progress value={modelProgress.percent} />
-        <p className="text-xs text-muted-foreground">
-          {formatBytes(modelProgress.downloaded)} / {formatBytes(modelProgress.total)} ({modelProgress.percent}%)
-        </p>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onDeleteOllamaModel}
+          className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+          title="Delete model"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
       </div>
-    );
-  }
-
-  // Everything is ready
-  if (status.binaryInstalled && status.modelInstalled) {
-    return (
-      <div className="rounded-md border border-green-500/30 bg-green-500/10 p-3 space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Check className="h-4 w-4 text-green-500" />
-            <span className="text-sm text-green-700 dark:text-green-400">AI Tagging Ready</span>
-            {status.serverRunning && (
-              <Badge variant="outline" className="text-xs gap-1 border-green-500/30 text-green-700 dark:text-green-400">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                </span>
-                AI Model Running
-              </Badge>
-            )}
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onRestartOllama}
-            disabled={isRestartingOllama}
-            className="h-7 px-2"
-            title="Restart AI Model"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${isRestartingOllama ? 'animate-spin' : ''}`} />
-          </Button>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Images will be automatically tagged when added to your library.
-        </p>
-      </div>
-    );
-  }
-
-  // Downloading Ollama (no progress yet)
-  if (isDownloadingOllama) {
-    return (
-      <div className="rounded-md border bg-muted/20 p-3 space-y-3">
-        <div className="flex items-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          <span className="text-sm">Starting Ollama download...</span>
-        </div>
-      </div>
-    );
-  }
-
-  // Downloading model (no progress yet)
-  if (isDownloadingModel) {
-    return (
-      <div className="rounded-md border bg-muted/20 p-3 space-y-3">
-        <div className="flex items-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          <span className="text-sm">Starting model download...</span>
-        </div>
-      </div>
-    );
-  }
-
-  return null;
+      <p className="text-xs text-muted-foreground">
+        Vision model for generating image tags.
+      </p>
+    </div>
+  );
 }

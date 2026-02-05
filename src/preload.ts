@@ -25,6 +25,8 @@ contextBridge.exposeInMainWorld('rune', {
   downloadOllama: () => ipcRenderer.invoke(IPC_CHANNELS.downloadOllama),
   downloadModel: () => ipcRenderer.invoke(IPC_CHANNELS.downloadModel),
   restartOllama: () => ipcRenderer.invoke(IPC_CHANNELS.restartOllama),
+  deleteOllamaModel: () => ipcRenderer.invoke(IPC_CHANNELS.deleteOllamaModel),
+  deleteOllamaBinary: () => ipcRenderer.invoke(IPC_CHANNELS.deleteOllamaBinary),
   
   // Tagging APIs
   getTaggingQueueStatus: () => ipcRenderer.invoke(IPC_CHANNELS.getTaggingQueueStatus),

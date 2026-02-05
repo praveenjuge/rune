@@ -37,6 +37,8 @@ declare global {
       downloadOllama: () => Promise<IpcResult<void>>;
       downloadModel: () => Promise<IpcResult<void>>;
       restartOllama: () => Promise<IpcResult<void>>;
+      deleteOllamaModel: () => Promise<IpcResult<void>>;
+      deleteOllamaBinary: () => Promise<IpcResult<void>>;
       
       // Tagging APIs
       getTaggingQueueStatus: () => Promise<TaggingQueueStatus>;

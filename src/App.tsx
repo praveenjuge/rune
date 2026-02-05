@@ -42,6 +42,8 @@ export function App() {
     handleDownloadOllama,
     handleDownloadModel,
     handleRestartOllama,
+    handleDeleteOllamaModel,
+    handleDeleteOllamaBinary,
   } = useAppState();
 
   const {
@@ -133,6 +135,8 @@ export function App() {
           onDownloadOllama={handleDownloadOllama}
           onDownloadModel={handleDownloadModel}
           onRestartOllama={handleRestartOllama}
+          onDeleteOllamaModel={handleDeleteOllamaModel}
+          onDeleteOllamaBinary={handleDeleteOllamaBinary}
         />
       ) : null}
     </div>

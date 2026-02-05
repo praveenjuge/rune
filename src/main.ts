@@ -445,6 +445,32 @@ app.whenReady().then(async () => {
   );
 
   ipcMain.handle(
+    IPC_CHANNELS.deleteOllamaModel,
+    async (): Promise<IpcResult<void>> => {
+      try {
+        await ollamaManager.deleteModel();
+        return success(undefined);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to delete model';
+        return failure(message);
+      }
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.deleteOllamaBinary,
+    async (): Promise<IpcResult<void>> => {
+      try {
+        await ollamaManager.deleteBinary();
+        return success(undefined);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to delete Ollama';
+        return failure(message);
+      }
+    },
+  );
+
+  ipcMain.handle(
     IPC_CHANNELS.getTaggingQueueStatus,
     async (): Promise<TaggingQueueStatus> => {
       return taggingQueue.getStatus();

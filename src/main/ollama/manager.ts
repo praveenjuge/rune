@@ -177,6 +177,9 @@ class OllamaManager extends EventEmitter {
     this.isDownloadingBinary = true;
     this.currentStatus.status = 'downloading-binary';
 
+    // Ensure ollama directory exists
+    await fs.mkdir(this.ollamaDir, { recursive: true });
+
     // Determine archive path based on URL
     const archiveExt = url.endsWith('.tgz') ? '.tgz' : url.endsWith('.zip') ? '.zip' : '.tar.zst';
     const archivePath = path.join(this.ollamaDir, `ollama${archiveExt}`);
@@ -585,6 +588,114 @@ class OllamaManager extends EventEmitter {
     await this.stopServer();
     await this.startServer();
     await this.checkStatus();
+  }
+
+  async deleteModel(): Promise<void> {
+    console.info('[ollama] Deleting model:', OLLAMA_MODEL);
+
+    // Start server if not running
+    if (!(await this.isServerRunning())) {
+      console.info('[ollama] Server not running, starting it for model deletion...');
+      await this.startServer();
+      await this.waitForServer();
+    }
+
+    console.info('[ollama] Server is running, proceeding with model deletion...');
+
+    return new Promise((resolve, reject) => {
+      const modelData = JSON.stringify({ name: OLLAMA_MODEL });
+      const urlObj = new URL(`${OLLAMA_HOST}/api/delete`);
+
+      const req = http.request(
+        {
+          hostname: urlObj.hostname,
+          port: urlObj.port || 11434,
+          path: urlObj.pathname,
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(modelData),
+          },
+          timeout: 30000,
+        },
+        (res: any) => {
+          console.info('[ollama] Delete response status:', res.statusCode);
+          let body = '';
+          res.on('data', (chunk: any) => { body += chunk; });
+          res.on('end', () => {
+            if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+              console.info('[ollama] Model deleted successfully');
+              this.checkStatus().then(() => resolve());
+            } else {
+              reject(new Error(`Failed to delete model: ${res.statusCode} ${res.statusMessage}`));
+            }
+          });
+        }
+      );
+
+      req.on('error', (err: Error) => {
+        console.error('[ollama] Delete request error:', err);
+        reject(err);
+      });
+
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('Delete request timeout'));
+      });
+
+      req.write(modelData);
+      req.end();
+    });
+  }
+
+  async deleteBinary(): Promise<void> {
+    console.info('[ollama] Deleting Ollama binary...');
+
+    // Stop the server first if it's running
+    if (this.serverProcess || (await this.isServerRunning())) {
+      console.info('[ollama] Stopping server before deletion...');
+      await this.stopServer();
+    }
+
+    // Delete the binary file
+    try {
+      await fs.unlink(this.binaryPath);
+      console.info('[ollama] Binary deleted successfully');
+    } catch (error) {
+      const nodeError = error as NodeJS.ErrnoException;
+      if (nodeError.code !== 'ENOENT') {
+        console.error('[ollama] Failed to delete binary:', nodeError);
+        throw new Error(`Failed to delete binary: ${nodeError.message}`);
+      }
+    }
+
+    // Clean up any leftover archive files
+    const extensions = ['.tgz', '.zip', '.tar.zst'];
+    for (const ext of extensions) {
+      const archivePath = path.join(this.ollamaDir, `ollama${ext}`);
+      try {
+        await fs.unlink(archivePath);
+        console.info('[ollama] Cleaned up archive:', archivePath);
+      } catch {
+        // Ignore if file doesn't exist
+      }
+    }
+
+    // Try to clean up the directory if it's empty (but don't force it)
+    try {
+      const files = await fs.readdir(this.ollamaDir);
+      if (files.length === 0) {
+        await fs.rmdir(this.ollamaDir);
+        console.info('[ollama] Ollama directory removed (was empty)');
+      } else {
+        console.info('[ollama] Ollama directory kept, contains:', files);
+      }
+    } catch {
+      // Ignore errors
+    }
+
+    await this.checkStatus();
+    console.info('[ollama] Binary deletion complete');
   }
 
   async generateTags(imagePath: string): Promise<string> {

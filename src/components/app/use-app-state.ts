@@ -182,6 +182,30 @@ export function useAppState() {
     }
   };
 
+  const handleDeleteOllamaModel = async () => {
+    setStatus(null);
+    const result = await window.rune.deleteOllamaModel();
+
+    if (result.ok === false) {
+      setStatus(result.error);
+    } else {
+      // Refresh status after deletion
+      window.rune.getOllamaStatus().then(setOllamaStatus);
+    }
+  };
+
+  const handleDeleteOllamaBinary = async () => {
+    setStatus(null);
+    const result = await window.rune.deleteOllamaBinary();
+
+    if (result.ok === false) {
+      setStatus(result.error);
+    } else {
+      // Refresh status after deletion
+      window.rune.getOllamaStatus().then(setOllamaStatus);
+    }
+  };
+
   // Set up event listeners for Ollama progress and tag updates
   useEffect(() => {
     const unsubOllama = window.rune.onOllamaDownloadProgress((progress) => {
@@ -245,6 +269,8 @@ export function useAppState() {
     handleDownloadOllama,
     handleDownloadModel,
     handleRestartOllama,
+    handleDeleteOllamaModel,
+    handleDeleteOllamaBinary,
   };
 }
 
