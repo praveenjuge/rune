@@ -1,9 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import {
   IPC_CHANNELS,
+  IPC_EVENTS,
   type DeleteImagePayload,
   type SearchImagesInput,
   type LibrarySettings,
+  type DownloadProgress,
+  type ImageTagsUpdated,
 } from './shared/library';
 
 contextBridge.exposeInMainWorld('rune', {
@@ -17,4 +20,30 @@ contextBridge.exposeInMainWorld('rune', {
     ipcRenderer.invoke(IPC_CHANNELS.searchImages, payload),
   deleteImage: (payload: DeleteImagePayload) =>
     ipcRenderer.invoke(IPC_CHANNELS.deleteImage, payload),
+  
+  // Ollama APIs
+  getOllamaStatus: () => ipcRenderer.invoke(IPC_CHANNELS.getOllamaStatus),
+  downloadOllama: () => ipcRenderer.invoke(IPC_CHANNELS.downloadOllama),
+  downloadModel: () => ipcRenderer.invoke(IPC_CHANNELS.downloadModel),
+  
+  // Tagging APIs
+  getTaggingQueueStatus: () => ipcRenderer.invoke(IPC_CHANNELS.getTaggingQueueStatus),
+  retryTagging: (imageId: string) => ipcRenderer.invoke(IPC_CHANNELS.retryTagging, imageId),
+  
+  // Event listeners
+  onOllamaDownloadProgress: (callback: (progress: DownloadProgress) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, progress: DownloadProgress) => callback(progress);
+    ipcRenderer.on(IPC_EVENTS.ollamaDownloadProgress, listener);
+    return () => ipcRenderer.removeListener(IPC_EVENTS.ollamaDownloadProgress, listener);
+  },
+  onModelDownloadProgress: (callback: (progress: DownloadProgress) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, progress: DownloadProgress) => callback(progress);
+    ipcRenderer.on(IPC_EVENTS.modelDownloadProgress, listener);
+    return () => ipcRenderer.removeListener(IPC_EVENTS.modelDownloadProgress, listener);
+  },
+  onImageTagsUpdated: (callback: (update: ImageTagsUpdated) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, update: ImageTagsUpdated) => callback(update);
+    ipcRenderer.on(IPC_EVENTS.imageTagsUpdated, listener);
+    return () => ipcRenderer.removeListener(IPC_EVENTS.imageTagsUpdated, listener);
+  },
 });

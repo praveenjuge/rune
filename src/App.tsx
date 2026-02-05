@@ -1,39 +1,52 @@
 import {
-  type ReactNode,
   useCallback,
   useEffect,
   useRef,
   useState,
 } from "react";
 import {
+  AlertCircle,
+  Check,
+  Download,
   FolderOpen,
   Laptop,
   Loader2,
   Moon,
   Plus,
+  RefreshCw,
   Search,
   Settings,
   Sun,
+  Sparkles,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { useTheme } from "@/components/theme-provider";
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
+  ContextMenuSeparator,
 } from "@/components/ui/context-menu";
 import {
-  DEFAULT_LICENSE_KEY,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+} from "@/components/ui/dialog";
+import {
+  OLLAMA_MODEL,
+  type AiTagStatus,
+  type DownloadProgress,
+  type ImageTagsUpdated,
   type LibraryImage,
   type LibrarySettings,
+  type OllamaStatus,
   type SearchCursor,
   SEARCH_PAGE_SIZE,
 } from "./shared/library";
 
-const inputClassName =
-  "flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
 const searchInputClassName =
   "h-10 w-full rounded-md border-0 bg-transparent pr-2 pl-8 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0";
 
@@ -41,7 +54,6 @@ export function App() {
   const [settings, setSettings] = useState<LibrarySettings | null>(null);
   const [defaultLibraryPath, setDefaultLibraryPath] = useState("");
   const [libraryPath, setLibraryPath] = useState("");
-  const [licenseKey, setLicenseKey] = useState(DEFAULT_LICENSE_KEY);
   const [images, setImages] = useState<LibraryImage[]>([]);
   const [search, setSearch] = useState("");
   const [cursor, setCursor] = useState<SearchCursor | null>(null);
@@ -57,6 +69,19 @@ export function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  
+  // Ollama state
+  const [ollamaStatus, setOllamaStatus] = useState<OllamaStatus>({
+    binaryInstalled: false,
+    modelInstalled: false,
+    serverRunning: false,
+    status: 'not-installed',
+  });
+  const [ollamaProgress, setOllamaProgress] = useState<DownloadProgress | null>(null);
+  const [modelProgress, setModelProgress] = useState<DownloadProgress | null>(null);
+  const [isDownloadingOllama, setIsDownloadingOllama] = useState(false);
+  const [isDownloadingModel, setIsDownloadingModel] = useState(false);
+  
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -75,7 +100,6 @@ export function App() {
   ) => {
     const nextPath = nextSettings?.libraryPath ?? defaultPath;
     setLibraryPath(nextPath);
-    setLicenseKey(nextSettings?.licenseKey ?? DEFAULT_LICENSE_KEY);
   };
 
   const runSearch = useCallback(
@@ -103,7 +127,7 @@ export function App() {
           return;
         }
 
-        if (!result.ok) {
+        if (result.ok === false) {
           setStatus(result.error);
         } else {
           setImages((current) =>
@@ -134,6 +158,7 @@ export function App() {
       const bootstrap = await window.rune.getBootstrap();
       setDefaultLibraryPath(bootstrap.defaultLibraryPath);
       setSettings(bootstrap.settings);
+      setOllamaStatus(bootstrap.ollamaStatus);
       setConfigDefaults(bootstrap.settings, bootstrap.defaultLibraryPath);
 
       if (bootstrap.settings) {
@@ -148,6 +173,47 @@ export function App() {
       setIsBootstrapping(false);
     }
   };
+
+  // Set up event listeners for Ollama progress and tag updates
+  useEffect(() => {
+    const unsubOllama = window.rune.onOllamaDownloadProgress((progress) => {
+      setOllamaProgress(progress);
+      if (progress.status === 'complete') {
+        setIsDownloadingOllama(false);
+        window.rune.getOllamaStatus().then(setOllamaStatus);
+      } else if (progress.status === 'error') {
+        setIsDownloadingOllama(false);
+        setStatus(progress.error || 'Failed to download Ollama');
+      }
+    });
+
+    const unsubModel = window.rune.onModelDownloadProgress((progress) => {
+      setModelProgress(progress);
+      if (progress.status === 'complete') {
+        setIsDownloadingModel(false);
+        window.rune.getOllamaStatus().then(setOllamaStatus);
+      } else if (progress.status === 'error') {
+        setIsDownloadingModel(false);
+        setStatus(progress.error || 'Failed to download model');
+      }
+    });
+
+    const unsubTags = window.rune.onImageTagsUpdated((update: ImageTagsUpdated) => {
+      setImages((current) =>
+        current.map((img) =>
+          img.id === update.id
+            ? { ...img, aiTags: update.aiTags, aiTagStatus: update.aiTagStatus }
+            : img
+        )
+      );
+    });
+
+    return () => {
+      unsubOllama();
+      unsubModel();
+      unsubTags();
+    };
+  }, []);
 
   useEffect(() => {
     handleBootstrap();
@@ -197,6 +263,8 @@ export function App() {
     setConfigMode("settings");
     setConfigDefaults(settings, defaultLibraryPath);
     setIsConfigOpen(true);
+    // Refresh Ollama status when opening settings
+    window.rune.getOllamaStatus().then(setOllamaStatus);
   };
 
   const handleSelectLibrary = async () => {
@@ -211,11 +279,10 @@ export function App() {
     setIsSaving(true);
     const result = await window.rune.saveSettings({
       libraryPath,
-      licenseKey: licenseKey.trim() || DEFAULT_LICENSE_KEY,
     });
     setIsSaving(false);
 
-    if (!result.ok) {
+    if (result.ok === false) {
       setStatus(result.error);
       return;
     }
@@ -239,7 +306,7 @@ export function App() {
     const result = await window.rune.importImages();
     setIsImporting(false);
 
-    if (!result.ok) {
+    if (result.ok === false) {
       setStatus(result.error);
       return;
     }
@@ -256,12 +323,43 @@ export function App() {
     const result = await window.rune.deleteImage({ id });
     setDeletingId(null);
 
-    if (!result.ok) {
+    if (result.ok === false) {
       setStatus(result.error);
       return;
     }
 
     setImages((current) => current.filter((image) => image.id !== id));
+  };
+
+  const handleRetryTagging = async (id: string) => {
+    const result = await window.rune.retryTagging(id);
+    if (result.ok === false) {
+      setStatus(result.error);
+    }
+  };
+
+  const handleDownloadOllama = async () => {
+    setIsDownloadingOllama(true);
+    setOllamaProgress(null);
+    setStatus(null);
+    
+    const result = await window.rune.downloadOllama();
+    if (result.ok === false) {
+      setStatus(result.error);
+      setIsDownloadingOllama(false);
+    }
+  };
+
+  const handleDownloadModel = async () => {
+    setIsDownloadingModel(true);
+    setModelProgress(null);
+    setStatus(null);
+    
+    const result = await window.rune.downloadModel();
+    if (result.ok === false) {
+      setStatus(result.error);
+      setIsDownloadingModel(false);
+    }
   };
 
   return (
@@ -301,6 +399,7 @@ export function App() {
               images={images}
               deletingId={deletingId}
               onDelete={handleDeleteImage}
+              onRetryTagging={handleRetryTagging}
             />
             <div ref={sentinelRef} className="h-6" />
             {isLoadingMore ? <LoadingMore /> : null}
@@ -310,16 +409,22 @@ export function App() {
 
       {isConfigOpen ? (
         <ConfigModal
+          isOpen={isConfigOpen}
           mode={configMode}
           libraryPath={libraryPath}
-          licenseKey={licenseKey}
           defaultLibraryPath={defaultLibraryPath}
           status={status}
           isSaving={isSaving}
-          onCancel={() => setIsConfigOpen(false)}
+          ollamaStatus={ollamaStatus}
+          ollamaProgress={ollamaProgress}
+          modelProgress={modelProgress}
+          isDownloadingOllama={isDownloadingOllama}
+          isDownloadingModel={isDownloadingModel}
+          onClose={() => setIsConfigOpen(false)}
           onChooseFolder={handleSelectLibrary}
-          onLicenseChange={setLicenseKey}
           onSave={handleSaveSettings}
+          onDownloadOllama={handleDownloadOllama}
+          onDownloadModel={handleDownloadModel}
         />
       ) : null}
     </div>
@@ -467,9 +572,10 @@ type ImageGridProps = {
   images: LibraryImage[];
   deletingId: string | null;
   onDelete: (id: string) => void;
+  onRetryTagging: (id: string) => void;
 };
 
-function ImageGrid({ images, deletingId, onDelete }: ImageGridProps) {
+function ImageGrid({ images, deletingId, onDelete, onRetryTagging }: ImageGridProps) {
   return (
     <div className="w-full columns-1 gap-1 sm:columns-3 lg:columns-4 xl:columns-6">
       {images.map((image) => (
@@ -482,9 +588,22 @@ function ImageGrid({ images, deletingId, onDelete }: ImageGridProps) {
                 loading="lazy"
                 className="block h-auto w-full object-cover"
               />
+              <ImageCaption
+                status={image.aiTagStatus}
+                tags={image.aiTags}
+              />
             </div>
           </ContextMenuTrigger>
           <ContextMenuContent>
+            {image.aiTagStatus === 'failed' && (
+              <>
+                <ContextMenuItem onClick={() => onRetryTagging(image.id)}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Retry AI Tags
+                </ContextMenuItem>
+                <ContextMenuSeparator />
+              </>
+            )}
             <ContextMenuItem
               onClick={() => onDelete(image.id)}
               disabled={deletingId === image.id}
@@ -499,70 +618,139 @@ function ImageGrid({ images, deletingId, onDelete }: ImageGridProps) {
   );
 }
 
+type ImageCaptionProps = {
+  status: AiTagStatus;
+  tags: string | null;
+};
+
+function ImageCaption({ status, tags }: ImageCaptionProps) {
+  if (status === 'pending') {
+    return null; // Don't show anything for pending
+  }
+
+  if (status === 'generating') {
+    return (
+      <div className="flex items-center gap-1.5 bg-muted/50 px-2 py-1.5 text-xs text-muted-foreground">
+        <Loader2 className="h-3 w-3 animate-spin" />
+        <span>Generating...</span>
+      </div>
+    );
+  }
+
+  if (status === 'failed') {
+    return (
+      <div className="flex items-center gap-1.5 bg-destructive/10 px-2 py-1.5 text-xs text-destructive">
+        <AlertCircle className="h-3 w-3" />
+        <span>Failed</span>
+      </div>
+    );
+  }
+
+  if (status === 'complete' && tags) {
+    return (
+      <div className="bg-muted/30 px-2 py-1.5 text-xs text-muted-foreground leading-relaxed">
+        {tags}
+      </div>
+    );
+  }
+
+  return null;
+}
+
 type ConfigModalProps = {
+  isOpen: boolean;
   mode: "onboarding" | "settings";
   libraryPath: string;
-  licenseKey: string;
   defaultLibraryPath: string;
   status: string | null;
   isSaving: boolean;
-  onCancel: () => void;
+  ollamaStatus: OllamaStatus;
+  ollamaProgress: DownloadProgress | null;
+  modelProgress: DownloadProgress | null;
+  isDownloadingOllama: boolean;
+  isDownloadingModel: boolean;
+  onClose: () => void;
   onChooseFolder: () => void;
-  onLicenseChange: (value: string) => void;
   onSave: () => void;
+  onDownloadOllama: () => void;
+  onDownloadModel: () => void;
 };
 
 function ConfigModal({
+  isOpen,
   mode,
   libraryPath,
-  licenseKey,
   defaultLibraryPath,
   status,
   isSaving,
-  onCancel,
+  ollamaStatus,
+  ollamaProgress,
+  modelProgress,
+  isDownloadingOllama,
+  isDownloadingModel,
+  onClose,
   onChooseFolder,
-  onLicenseChange,
   onSave,
+  onDownloadOllama,
+  onDownloadModel,
 }: ConfigModalProps) {
   const { theme, setTheme } = useTheme();
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-background/80 px-6 py-8">
-      <div className="w-full max-w-lg rounded-md border bg-background p-6 shadow-lg">
-        <p className="text-xs text-muted-foreground">
-          {mode === "onboarding" ? "Welcome" : "Library settings"}
-        </p>
-        <h2 className="text-lg font-semibold">Choose a library location</h2>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <h2 className="text-lg font-semibold">
+            {mode === "onboarding" ? "Set up your library" : "Settings"}
+          </h2>
+        </DialogHeader>
 
-        <div className="mt-4 space-y-4 text-sm">
-          <FieldGroup
-            label="Library folder"
-            note={`Default: ${defaultLibraryPath || "Documents/rune"}`}
-          >
-            <div className="flex flex-wrap items-center gap-2">
-              <input value={libraryPath} readOnly className={inputClassName} />
+        <div className="space-y-5 text-sm">
+          {/* Library folder */}
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground">
+              Library folder
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                value={libraryPath}
+                readOnly
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground"
+              />
               <Button
                 variant="outline"
+                size="icon"
                 onClick={onChooseFolder}
                 aria-label="Choose folder"
               >
                 <FolderOpen className="h-4 w-4" />
               </Button>
             </div>
-          </FieldGroup>
-          <FieldGroup label="License key">
-            <input
-              value={licenseKey}
-              onChange={(event) => onLicenseChange(event.target.value)}
-              className={inputClassName}
+          </div>
+
+          {/* AI Tagging */}
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground">
+              AI Tagging
+            </label>
+            <OllamaSetup
+              status={ollamaStatus}
+              ollamaProgress={ollamaProgress}
+              modelProgress={modelProgress}
+              isDownloadingOllama={isDownloadingOllama}
+              isDownloadingModel={isDownloadingModel}
+              onDownloadOllama={onDownloadOllama}
+              onDownloadModel={onDownloadModel}
             />
-          </FieldGroup>
-          {mode === "settings" ? (
-            <FieldGroup
-              label="Appearance"
-              note="System uses your OS appearance preference."
-            >
-              <div className="flex flex-wrap items-center gap-2">
+          </div>
+
+          {/* Appearance - only in settings mode */}
+          {mode === "settings" && (
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">
+                Theme
+              </label>
+              <div className="flex items-center gap-2">
                 <Button
                   type="button"
                   variant={theme === "system" ? "default" : "outline"}
@@ -570,7 +758,6 @@ function ConfigModal({
                   onClick={() => setTheme("system")}
                 >
                   <Laptop className="h-4 w-4" />
-                  System
                 </Button>
                 <Button
                   type="button"
@@ -579,7 +766,6 @@ function ConfigModal({
                   onClick={() => setTheme("light")}
                 >
                   <Sun className="h-4 w-4" />
-                  Light
                 </Button>
                 <Button
                   type="button"
@@ -588,31 +774,32 @@ function ConfigModal({
                   onClick={() => setTheme("dark")}
                 >
                   <Moon className="h-4 w-4" />
-                  Dark
                 </Button>
               </div>
-            </FieldGroup>
-          ) : null}
+            </div>
+          )}
         </div>
 
-        {status ? (
+        {/* Error message */}
+        {status && (
           <div className="mt-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             {status}
           </div>
-        ) : null}
+        )}
 
-        <div className="mt-6 flex items-center justify-end gap-2">
-          {mode === "settings" ? (
-            <Button variant="outline" onClick={onCancel}>
+        {/* Actions */}
+        <div className="flex justify-end gap-2 mt-6">
+          {mode === "settings" && (
+            <Button variant="ghost" onClick={onClose}>
               Cancel
             </Button>
-          ) : null}
+          )}
           <Button onClick={onSave} disabled={isSaving}>
             {isSaving ? (
-              <span className="inline-flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 Saving
-              </span>
+              </>
             ) : mode === "onboarding" ? (
               "Continue"
             ) : (
@@ -620,23 +807,146 @@ function ConfigModal({
             )}
           </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-type FieldGroupProps = {
-  label: string;
-  note?: string;
-  children: ReactNode;
+type OllamaSetupProps = {
+  status: OllamaStatus;
+  ollamaProgress: DownloadProgress | null;
+  modelProgress: DownloadProgress | null;
+  isDownloadingOllama: boolean;
+  isDownloadingModel: boolean;
+  onDownloadOllama: () => void;
+  onDownloadModel: () => void;
 };
 
-function FieldGroup({ label, note, children }: FieldGroupProps) {
-  return (
-    <div className="space-y-2">
-      <label className="text-xs text-muted-foreground">{label}</label>
-      {children}
-      {note ? <p className="text-xs text-muted-foreground">{note}</p> : null}
-    </div>
-  );
+function OllamaSetup({
+  status,
+  ollamaProgress,
+  modelProgress,
+  isDownloadingOllama,
+  isDownloadingModel,
+  onDownloadOllama,
+  onDownloadModel,
+}: OllamaSetupProps) {
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+  };
+
+  // Ollama binary not installed
+  if (!status.binaryInstalled && !isDownloadingOllama) {
+    return (
+      <div className="rounded-md border bg-muted/20 p-3 space-y-3">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm">Ollama not installed</span>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Download Ollama to enable AI-powered image tagging.
+        </p>
+        <Button onClick={onDownloadOllama} size="sm">
+          <Download className="h-4 w-4 mr-2" />
+          Download Ollama
+        </Button>
+      </div>
+    );
+  }
+
+  // Downloading Ollama binary
+  if (isDownloadingOllama && ollamaProgress) {
+    return (
+      <div className="rounded-md border bg-muted/20 p-3 space-y-3">
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          <span className="text-sm">Downloading Ollama...</span>
+        </div>
+        <Progress value={ollamaProgress.percent} />
+        <p className="text-xs text-muted-foreground">
+          {formatBytes(ollamaProgress.downloaded)} / {formatBytes(ollamaProgress.total)} ({ollamaProgress.percent}%)
+        </p>
+      </div>
+    );
+  }
+
+  // Ollama installed but model not installed
+  if (status.binaryInstalled && !status.modelInstalled && !isDownloadingModel) {
+    return (
+      <div className="rounded-md border bg-muted/20 p-3 space-y-3">
+        <div className="flex items-center gap-2">
+          <Check className="h-4 w-4 text-green-500" />
+          <span className="text-sm">Ollama installed</span>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Download the AI vision model ({OLLAMA_MODEL}) to start tagging images.
+        </p>
+        <Button onClick={onDownloadModel} size="sm">
+          <Download className="h-4 w-4 mr-2" />
+          Download Model (~1.5 GB)
+        </Button>
+      </div>
+    );
+  }
+
+  // Downloading model
+  if (isDownloadingModel && modelProgress) {
+    return (
+      <div className="rounded-md border bg-muted/20 p-3 space-y-3">
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          <span className="text-sm">Downloading {OLLAMA_MODEL}...</span>
+        </div>
+        <Progress value={modelProgress.percent} />
+        <p className="text-xs text-muted-foreground">
+          {formatBytes(modelProgress.downloaded)} / {formatBytes(modelProgress.total)} ({modelProgress.percent}%)
+        </p>
+      </div>
+    );
+  }
+
+  // Everything is ready
+  if (status.binaryInstalled && status.modelInstalled) {
+    return (
+      <div className="rounded-md border border-green-500/30 bg-green-500/10 p-3 space-y-2">
+        <div className="flex items-center gap-2">
+          <Check className="h-4 w-4 text-green-500" />
+          <span className="text-sm text-green-700 dark:text-green-400">AI Tagging Ready</span>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Images will be automatically tagged when added to your library.
+        </p>
+      </div>
+    );
+  }
+
+  // Downloading Ollama (no progress yet)
+  if (isDownloadingOllama) {
+    return (
+      <div className="rounded-md border bg-muted/20 p-3 space-y-3">
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          <span className="text-sm">Starting Ollama download...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Downloading model (no progress yet)
+  if (isDownloadingModel) {
+    return (
+      <div className="rounded-md border bg-muted/20 p-3 space-y-3">
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          <span className="text-sm">Starting model download...</span>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }

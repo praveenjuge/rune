@@ -7,24 +7,31 @@ import {
   DEFAULT_LICENSE_KEY,
   IMAGE_EXTENSIONS,
   IPC_CHANNELS,
+  IPC_EVENTS,
   RUNE_PROTOCOL,
   RUNE_PROTOCOL_HOST,
   type DeleteImagePayload,
   type DeleteImageResult,
+  type DownloadProgress,
   type IpcResult,
   type LibraryImage,
   type LibrarySettings,
+  type OllamaStatus,
   type SearchImagesInput,
   type SearchImagesResult,
+  type TaggingQueueStatus,
   isSupportedImage,
   toRuneUrl,
 } from './shared/library';
 import {
+  closeAllDatabases,
   deleteImageById,
   getImageById,
   insertImages,
+  retryFailedTags,
   searchImages,
 } from './main/db';
+import { ollamaManager, taggingQueue } from './main/ollama';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -120,7 +127,7 @@ const saveSettings = async (
   const now = new Date().toISOString();
   const normalized: LibrarySettings = {
     libraryPath: normalizeLibraryPath(settings.libraryPath),
-    licenseKey: settings.licenseKey.trim() || DEFAULT_LICENSE_KEY,
+    licenseKey: DEFAULT_LICENSE_KEY,
     createdAt: settings.createdAt ?? now,
     updatedAt: now,
   };
@@ -146,10 +153,6 @@ const validateSettingsInput = (settings: LibrarySettings): string | null => {
 
   if (!path.isAbsolute(normalizedPath)) {
     return 'Library path must be absolute.';
-  }
-
-  if (typeof settings.licenseKey !== 'string' || !settings.licenseKey.trim()) {
-    return 'License key is required.';
   }
 
   return null;
@@ -287,6 +290,8 @@ const importImages = async (
       url: toRuneUrl(destination),
       addedAt: now,
       bytes: stat.size,
+      aiTags: null,
+      aiTagStatus: 'pending',
     };
 
     imported.push(record);
@@ -294,6 +299,12 @@ const importImages = async (
 
   try {
     await insertImages(libraryPath, imported);
+    
+    // Enqueue new images for tagging
+    if (imported.length > 0) {
+      taggingQueue.enqueueNewImages(imported.map((img) => img.id));
+    }
+    
     return success(imported);
   } catch (error) {
     return failure('Unable to save images.');
@@ -303,7 +314,7 @@ const importImages = async (
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   protocol.registerFileProtocol(RUNE_PROTOCOL, (request, callback) => {
     try {
       const url = new URL(request.url);
@@ -325,12 +336,48 @@ app.whenReady().then(() => {
     }
   });
 
+  // Initialize Ollama manager
+  await ollamaManager.initialize();
+
+  // Set up Ollama event listeners
+  ollamaManager.on('download-progress', (progress: DownloadProgress) => {
+    const windows = BrowserWindow.getAllWindows();
+    for (const win of windows) {
+      win.webContents.send(IPC_EVENTS.ollamaDownloadProgress, progress);
+    }
+  });
+
+  ollamaManager.on('model-download-progress', (progress: DownloadProgress) => {
+    const windows = BrowserWindow.getAllWindows();
+    for (const win of windows) {
+      win.webContents.send(IPC_EVENTS.modelDownloadProgress, progress);
+    }
+  });
+
   createWindow();
+
+  // Load settings and start tagging queue if model is installed
+  const settings = await loadSettings();
+  if (settings) {
+    taggingQueue.setLibraryPath(settings.libraryPath);
+    const status = await ollamaManager.checkStatus();
+    if (status.binaryInstalled) {
+      try {
+        await ollamaManager.startServer();
+        if (status.modelInstalled) {
+          taggingQueue.start();
+        }
+      } catch (error) {
+        console.error('[rune] Failed to start Ollama server:', error);
+      }
+    }
+  }
 
   ipcMain.handle(IPC_CHANNELS.getBootstrap, async () => {
     const settings = await loadSettings();
     const defaultLibraryPath = path.join(app.getPath('documents'), 'Rune');
-    return { settings, defaultLibraryPath };
+    const ollamaStatus = await ollamaManager.checkStatus();
+    return { settings, defaultLibraryPath, ollamaStatus };
   });
 
   ipcMain.handle(
@@ -365,6 +412,9 @@ app.whenReady().then(() => {
           ...settings,
           libraryPath: normalizedPath,
         });
+
+        // Update tagging queue library path
+        taggingQueue.setLibraryPath(normalizedPath);
 
         return success(next);
       } catch (saveError) {
@@ -408,6 +458,73 @@ app.whenReady().then(() => {
       return deleteImage(settings.libraryPath, payload);
     },
   );
+
+  // Ollama IPC handlers
+  ipcMain.handle(
+    IPC_CHANNELS.getOllamaStatus,
+    async (): Promise<OllamaStatus> => {
+      return ollamaManager.checkStatus();
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.downloadOllama,
+    async (): Promise<IpcResult<void>> => {
+      try {
+        await ollamaManager.downloadBinary();
+        return success(undefined);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to download Ollama';
+        return failure(message);
+      }
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.downloadModel,
+    async (): Promise<IpcResult<void>> => {
+      try {
+        await ollamaManager.downloadModel();
+        
+        // Start tagging queue after model is installed
+        const settings = await loadSettings();
+        if (settings) {
+          taggingQueue.setLibraryPath(settings.libraryPath);
+          taggingQueue.start();
+        }
+        
+        return success(undefined);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to download model';
+        return failure(message);
+      }
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.getTaggingQueueStatus,
+    async (): Promise<TaggingQueueStatus> => {
+      return taggingQueue.getStatus();
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.retryTagging,
+    async (_event, imageId: string): Promise<IpcResult<void>> => {
+      const settings = await loadSettings();
+      if (!settings) {
+        return failure('Library settings not found.');
+      }
+
+      try {
+        await retryFailedTags(settings.libraryPath, imageId);
+        taggingQueue.retryImage(imageId);
+        return success(undefined);
+      } catch (error) {
+        return failure('Failed to retry tagging.');
+      }
+    },
+  );
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common
@@ -417,6 +534,17 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+app.on('before-quit', async () => {
+  // Pause tagging queue
+  taggingQueue.pause();
+  
+  // Stop Ollama server
+  await ollamaManager.stopServer();
+  
+  // Close all database connections
+  closeAllDatabases();
 });
 
 app.on('activate', () => {

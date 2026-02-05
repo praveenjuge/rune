@@ -22,8 +22,8 @@
     "@electron-forge/plugin-auto-unpack-natives": "^7.11.1",
     "@electron-forge/plugin-fuses": "^7.11.1",
     "@electron-forge/plugin-vite": "^7.11.1",
-    "@electron/rebuild": "^3.7.1",
     "@electron/fuses": "^1.8.0",
+    "@electron/rebuild": "^3.7.1",
     "@tailwindcss/vite": "^4.1.18",
     "@types/electron-squirrel-startup": "^1.0.2",
     "@types/react": "^19.2.10",
@@ -41,6 +41,7 @@
   },
   "dependencies": {
     "@radix-ui/react-context-menu": "^2.2.16",
+    "@radix-ui/react-dialog": "^1.1.15",
     "better-sqlite3": "^12.4.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

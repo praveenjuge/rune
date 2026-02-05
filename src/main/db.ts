@@ -12,10 +12,11 @@ import {
 
 const DB_DIRNAME = '.rune';
 const DB_FILENAME = 'library.sqlite';
-const DB_SCHEMA_VERSION = 1;
+const DB_SCHEMA_VERSION = 2; // Bumped for AI tags support
 const MAX_PAGE_SIZE = 500;
 
 type DbImageRow = Omit<LibraryImage, 'url'>;
+type AiTagStatus = 'pending' | 'generating' | 'complete' | 'failed';
 
 type InsertImageParams = {
   id: string;
@@ -24,6 +25,14 @@ type InsertImageParams = {
   file_path: string;
   added_at: string;
   bytes: number;
+  ai_tags: string | null;
+  ai_tag_status: string;
+};
+
+type UpdateImageTagsParams = {
+  id: string;
+  ai_tags: string | null;
+  ai_tag_status: string;
 };
 
 type IdParam = { id: string };
@@ -39,7 +48,7 @@ type SearchFtsAfterParams = {
 
 type DbStatements = {
   insertImage: Database.Statement<InsertImageParams>;
-  insertFts: Database.Statement<{ id: string; original_name: string }>;
+  insertFts: Database.Statement<{ id: string; original_name: string; ai_tags: string | null }>;
   deleteImage: Database.Statement<IdParam>;
   deleteFts: Database.Statement<IdParam>;
   getImageById: Database.Statement<IdParam>;
@@ -47,6 +56,10 @@ type DbStatements = {
   selectPageAfter: Database.Statement<SearchPageAfterParams>;
   selectFtsPage: Database.Statement<SearchFtsParams>;
   selectFtsPageAfter: Database.Statement<SearchFtsAfterParams>;
+  updateImageTags: Database.Statement<UpdateImageTagsParams>;
+  updateFtsTags: Database.Statement<{ id: string; ai_tags: string | null }>;
+  selectPendingTags: Database.Statement<{ limit: number }>;
+  setTagStatus: Database.Statement<{ id: string; ai_tag_status: string }>;
 };
 
 type DbContext = {
@@ -98,25 +111,78 @@ const ensureSchema = (db: Database.Database) => {
       stored_name TEXT NOT NULL,
       file_path TEXT NOT NULL UNIQUE,
       added_at TEXT NOT NULL,
-      bytes INTEGER NOT NULL
+      bytes INTEGER NOT NULL,
+      ai_tags TEXT DEFAULT NULL,
+      ai_tag_status TEXT DEFAULT 'pending'
     );
     CREATE VIRTUAL TABLE IF NOT EXISTS images_fts
-      USING fts5(id UNINDEXED, original_name, tokenize='unicode61');
+      USING fts5(id UNINDEXED, original_name, ai_tags, tokenize='unicode61');
     CREATE INDEX IF NOT EXISTS images_added_at_idx
       ON images(added_at DESC, id DESC);
+    CREATE INDEX IF NOT EXISTS images_ai_tag_status_idx
+      ON images(ai_tag_status);
   `);
   db.pragma(`user_version = ${DB_SCHEMA_VERSION}`);
+};
+
+const migrateSchema = (db: Database.Database, fromVersion: number) => {
+  if (fromVersion < 2) {
+    // Migration from version 1 to 2: Add AI tags columns
+    console.info('[rune] Migrating database to version 2 (AI tags)...');
+    
+    // Add new columns to images table
+    const columns = db.prepare(`PRAGMA table_info(images)`).all() as Array<{ name: string }>;
+    const columnNames = columns.map(c => c.name);
+    
+    if (!columnNames.includes('ai_tags')) {
+      db.exec(`ALTER TABLE images ADD COLUMN ai_tags TEXT DEFAULT NULL`);
+    }
+    if (!columnNames.includes('ai_tag_status')) {
+      db.exec(`ALTER TABLE images ADD COLUMN ai_tag_status TEXT DEFAULT 'pending'`);
+    }
+    
+    // Recreate FTS table to include ai_tags
+    // First, check if old FTS table exists and migrate data
+    const ftsExists = db.prepare(
+      `SELECT name FROM sqlite_master WHERE type='table' AND name='images_fts'`
+    ).get();
+    
+    if (ftsExists) {
+      // Drop old FTS table and recreate with ai_tags
+      db.exec(`DROP TABLE IF EXISTS images_fts`);
+    }
+    
+    db.exec(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS images_fts
+        USING fts5(id UNINDEXED, original_name, ai_tags, tokenize='unicode61');
+    `);
+    
+    // Repopulate FTS table from images
+    db.exec(`
+      INSERT INTO images_fts (id, original_name, ai_tags)
+      SELECT id, original_name, ai_tags FROM images
+    `);
+    
+    // Create index for ai_tag_status
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS images_ai_tag_status_idx
+        ON images(ai_tag_status);
+    `);
+    
+    db.pragma(`user_version = 2`);
+    console.info('[rune] Migration to version 2 complete.');
+  }
 };
 
 const prepareStatements = (db: Database.Database): DbStatements => ({
   insertImage: db.prepare(
     `
-    INSERT INTO images (id, original_name, stored_name, file_path, added_at, bytes)
-    VALUES (@id, @original_name, @stored_name, @file_path, @added_at, @bytes)
+    INSERT INTO images (id, original_name, stored_name, file_path, added_at, bytes, ai_tags, ai_tag_status)
+    VALUES (@id, @original_name, @stored_name, @file_path, @added_at, @bytes, @ai_tags, @ai_tag_status)
   `,
   ),
   insertFts: db.prepare(
-    `INSERT INTO images_fts (id, original_name) VALUES (@id, @original_name)`,
+    `INSERT INTO images_fts (id, original_name, ai_tags) VALUES (@id, @original_name, @ai_tags)`,
   ),
   deleteImage: db.prepare(`DELETE FROM images WHERE id = @id`),
   deleteFts: db.prepare(`DELETE FROM images_fts WHERE id = @id`),
@@ -128,7 +194,9 @@ const prepareStatements = (db: Database.Database): DbStatements => ({
       stored_name as storedName,
       file_path as filePath,
       added_at as addedAt,
-      bytes
+      bytes,
+      ai_tags as aiTags,
+      ai_tag_status as aiTagStatus
     FROM images
     WHERE id = @id
   `,
@@ -141,7 +209,9 @@ const prepareStatements = (db: Database.Database): DbStatements => ({
       stored_name as storedName,
       file_path as filePath,
       added_at as addedAt,
-      bytes
+      bytes,
+      ai_tags as aiTags,
+      ai_tag_status as aiTagStatus
     FROM images
     ORDER BY added_at DESC, id DESC
     LIMIT @limit
@@ -155,7 +225,9 @@ const prepareStatements = (db: Database.Database): DbStatements => ({
       stored_name as storedName,
       file_path as filePath,
       added_at as addedAt,
-      bytes
+      bytes,
+      ai_tags as aiTags,
+      ai_tag_status as aiTagStatus
     FROM images
     WHERE (added_at < @addedAt OR (added_at = @addedAt AND id < @id))
     ORDER BY added_at DESC, id DESC
@@ -170,7 +242,9 @@ const prepareStatements = (db: Database.Database): DbStatements => ({
       images.stored_name as storedName,
       images.file_path as filePath,
       images.added_at as addedAt,
-      images.bytes
+      images.bytes,
+      images.ai_tags as aiTags,
+      images.ai_tag_status as aiTagStatus
     FROM images_fts
     JOIN images ON images.id = images_fts.id
     WHERE images_fts MATCH @query
@@ -186,7 +260,9 @@ const prepareStatements = (db: Database.Database): DbStatements => ({
       images.stored_name as storedName,
       images.file_path as filePath,
       images.added_at as addedAt,
-      images.bytes
+      images.bytes,
+      images.ai_tags as aiTags,
+      images.ai_tag_status as aiTagStatus
     FROM images_fts
     JOIN images ON images.id = images_fts.id
     WHERE images_fts MATCH @query
@@ -194,6 +270,32 @@ const prepareStatements = (db: Database.Database): DbStatements => ({
     ORDER BY images.added_at DESC, images.id DESC
     LIMIT @limit
   `,
+  ),
+  updateImageTags: db.prepare(
+    `UPDATE images SET ai_tags = @ai_tags, ai_tag_status = @ai_tag_status WHERE id = @id`,
+  ),
+  updateFtsTags: db.prepare(
+    `UPDATE images_fts SET ai_tags = @ai_tags WHERE id = @id`,
+  ),
+  selectPendingTags: db.prepare(
+    `
+    SELECT
+      id,
+      original_name as originalName,
+      stored_name as storedName,
+      file_path as filePath,
+      added_at as addedAt,
+      bytes,
+      ai_tags as aiTags,
+      ai_tag_status as aiTagStatus
+    FROM images
+    WHERE ai_tag_status = 'pending'
+    ORDER BY added_at DESC
+    LIMIT @limit
+  `,
+  ),
+  setTagStatus: db.prepare(
+    `UPDATE images SET ai_tag_status = @ai_tag_status WHERE id = @id`,
   ),
 });
 
@@ -231,6 +333,8 @@ const openDatabase = async (libraryPath: string): Promise<DbContext> => {
   const userVersion = db.pragma('user_version', { simple: true }) as number;
   if (!userVersion) {
     ensureSchema(db);
+  } else if (userVersion < DB_SCHEMA_VERSION) {
+    migrateSchema(db, userVersion);
   }
 
   console.info(
@@ -309,10 +413,13 @@ export const insertImages = async (
         file_path: row.filePath,
         added_at: row.addedAt,
         bytes: row.bytes,
+        ai_tags: row.aiTags ?? null,
+        ai_tag_status: row.aiTagStatus ?? 'pending',
       });
       statements.insertFts.run({
         id: row.id,
         original_name: row.originalName,
+        ai_tags: row.aiTags ?? null,
       });
     }
   });
@@ -345,4 +452,53 @@ export const closeAllDatabases = () => {
     context.db.close();
     dbCache.delete(key);
   }
+};
+
+// AI Tagging functions
+
+export const updateImageTags = async (
+  libraryPath: string,
+  id: string,
+  tags: string | null,
+  status: AiTagStatus,
+): Promise<void> => {
+  const { db, statements } = await getDb(libraryPath);
+  const update = db.transaction(() => {
+    statements.updateImageTags.run({
+      id,
+      ai_tags: tags,
+      ai_tag_status: status,
+    });
+    statements.updateFtsTags.run({
+      id,
+      ai_tags: tags,
+    });
+  });
+  update();
+};
+
+export const setImageTagStatus = async (
+  libraryPath: string,
+  id: string,
+  status: AiTagStatus,
+): Promise<void> => {
+  const { statements } = await getDb(libraryPath);
+  statements.setTagStatus.run({ id, ai_tag_status: status });
+};
+
+export const getImagesNeedingTags = async (
+  libraryPath: string,
+  limit = 10,
+): Promise<LibraryImage[]> => {
+  const { statements } = await getDb(libraryPath);
+  const rows = statements.selectPendingTags.all({ limit }) as DbImageRow[];
+  return rows.map(hydrateImage);
+};
+
+export const retryFailedTags = async (
+  libraryPath: string,
+  id: string,
+): Promise<void> => {
+  const { statements } = await getDb(libraryPath);
+  statements.setTagStatus.run({ id, ai_tag_status: 'pending' });
 };
