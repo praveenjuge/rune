@@ -1,7 +1,7 @@
 {
   "name": "rune",
   "productName": "Rune",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "main": ".vite/build/main.js",
   "scripts": {
     "start": "electron-forge start",
