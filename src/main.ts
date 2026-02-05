@@ -298,26 +298,7 @@ app.whenReady().then(async () => {
     }
   });
 
-  createWindow();
-
-  // Load settings and start tagging queue if model is installed
-  const runeLibraryPath = getRuneLibraryPath();
-  const settings = await loadSettings(runeLibraryPath);
-  if (settings) {
-    taggingQueue.setLibraryPath(runeLibraryPath);
-    const status = await ollamaManager.checkStatus();
-    if (status.binaryInstalled) {
-      try {
-        await ollamaManager.startServer();
-        if (status.modelInstalled) {
-          taggingQueue.start();
-        }
-      } catch (error) {
-        console.error('[rune] Failed to start Ollama server:', error);
-      }
-    }
-  }
-
+  // Register IPC handlers BEFORE creating the window to avoid race condition
   ipcMain.handle(IPC_CHANNELS.getBootstrap, async () => {
     const runeLibraryPath = getRuneLibraryPath();
     const settings = await loadSettings(runeLibraryPath);
@@ -488,6 +469,27 @@ app.whenReady().then(async () => {
       }
     },
   );
+
+  // Now create the window after all IPC handlers are registered
+  createWindow();
+
+  // Load settings and start tagging queue if model is installed
+  const runeLibraryPath = getRuneLibraryPath();
+  const settings = await loadSettings(runeLibraryPath);
+  if (settings) {
+    taggingQueue.setLibraryPath(runeLibraryPath);
+    const status = await ollamaManager.checkStatus();
+    if (status.binaryInstalled) {
+      try {
+        await ollamaManager.startServer();
+        if (status.modelInstalled) {
+          taggingQueue.start();
+        }
+      } catch (error) {
+        console.error('[rune] Failed to start Ollama server:', error);
+      }
+    }
+  }
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common
