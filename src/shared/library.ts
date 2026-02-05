@@ -114,6 +114,7 @@ export const IPC_CHANNELS = {
   getOllamaStatus: "rune:ollama-status",
   downloadOllama: "rune:download-ollama",
   downloadModel: "rune:download-model",
+  restartOllama: "rune:restart-ollama",
   // Tagging channels
   getTaggingQueueStatus: "rune:tagging-queue-status",
   retryTagging: "rune:retry-tagging",

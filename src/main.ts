@@ -433,7 +433,7 @@ app.whenReady().then(async () => {
     async (): Promise<IpcResult<void>> => {
       try {
         await ollamaManager.downloadModel();
-        
+
         // Start tagging queue after model is installed
         const runeLibraryPath = getRuneLibraryPath();
         const settings = await loadSettings(runeLibraryPath);
@@ -441,10 +441,23 @@ app.whenReady().then(async () => {
           taggingQueue.setLibraryPath(runeLibraryPath);
           taggingQueue.start();
         }
-        
+
         return success(undefined);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to download model';
+        return failure(message);
+      }
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.restartOllama,
+    async (): Promise<IpcResult<void>> => {
+      try {
+        await ollamaManager.restartServer();
+        return success(undefined);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to restart Ollama';
         return failure(message);
       }
     },

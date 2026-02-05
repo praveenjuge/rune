@@ -555,7 +555,7 @@ class OllamaManager extends EventEmitter {
     }
 
     console.info('[ollama] Stopping server...');
-    
+
     return new Promise((resolve) => {
       if (!this.serverProcess) {
         resolve();
@@ -578,6 +578,13 @@ class OllamaManager extends EventEmitter {
 
       this.serverProcess.kill('SIGTERM');
     });
+  }
+
+  async restartServer(): Promise<void> {
+    console.info('[ollama] Restarting server...');
+    await this.stopServer();
+    await this.startServer();
+    await this.checkStatus();
   }
 
   async generateTags(imagePath: string): Promise<string> {

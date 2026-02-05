@@ -29,6 +29,7 @@ export function App() {
     modelProgress,
     isDownloadingOllama,
     isDownloadingModel,
+    isRestartingOllama,
     setStatus,
     setIsConfigOpen,
     resetResults,
@@ -40,6 +41,7 @@ export function App() {
     handleRetryTagging,
     handleDownloadOllama,
     handleDownloadModel,
+    handleRestartOllama,
   } = useAppState();
 
   const {
@@ -123,12 +125,14 @@ export function App() {
           modelProgress={modelProgress}
           isDownloadingOllama={isDownloadingOllama}
           isDownloadingModel={isDownloadingModel}
+          isRestartingOllama={isRestartingOllama}
           showWelcome={!settings}
           onClose={() => setIsConfigOpen(false)}
           onChooseFolder={handleSelectLibrary}
           onSave={handleSaveSettings}
           onDownloadOllama={handleDownloadOllama}
           onDownloadModel={handleDownloadModel}
+          onRestartOllama={handleRestartOllama}
         />
       ) : null}
     </div>

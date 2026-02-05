@@ -5,10 +5,12 @@ import {
   Laptop,
   Loader2,
   Moon,
+  RefreshCw,
   Sparkles,
   Sun,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useTheme } from "@/components/theme-provider";
 import {
@@ -30,12 +32,14 @@ export function ConfigModal({
   modelProgress,
   isDownloadingOllama,
   isDownloadingModel,
+  isRestartingOllama,
   showWelcome,
   onClose,
   onChooseFolder,
   onSave,
   onDownloadOllama,
   onDownloadModel,
+  onRestartOllama,
 }: {
   isOpen: boolean;
   libraryPath: string;
@@ -47,12 +51,14 @@ export function ConfigModal({
   modelProgress: DownloadProgress | null;
   isDownloadingOllama: boolean;
   isDownloadingModel: boolean;
+  isRestartingOllama: boolean;
   showWelcome: boolean;
   onClose: () => void;
   onChooseFolder: () => void;
   onSave: () => void;
   onDownloadOllama: () => void;
   onDownloadModel: () => void;
+  onRestartOllama: () => void;
 }) {
   const { theme, setTheme } = useTheme();
 
@@ -104,8 +110,10 @@ export function ConfigModal({
               modelProgress={modelProgress}
               isDownloadingOllama={isDownloadingOllama}
               isDownloadingModel={isDownloadingModel}
+              isRestartingOllama={isRestartingOllama}
               onDownloadOllama={onDownloadOllama}
               onDownloadModel={onDownloadModel}
+              onRestartOllama={onRestartOllama}
             />
           </div>
 
@@ -177,16 +185,20 @@ function OllamaSetup({
   modelProgress,
   isDownloadingOllama,
   isDownloadingModel,
+  isRestartingOllama,
   onDownloadOllama,
   onDownloadModel,
+  onRestartOllama,
 }: {
   status: OllamaStatus;
   ollamaProgress: DownloadProgress | null;
   modelProgress: DownloadProgress | null;
   isDownloadingOllama: boolean;
   isDownloadingModel: boolean;
+  isRestartingOllama: boolean;
   onDownloadOllama: () => void;
   onDownloadModel: () => void;
+  onRestartOllama: () => void;
 }) {
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return "0 B";
@@ -269,10 +281,31 @@ function OllamaSetup({
   // Everything is ready
   if (status.binaryInstalled && status.modelInstalled) {
     return (
-      <div className="rounded-md border border-green-500/30 bg-green-500/10 p-3 space-y-2">
-        <div className="flex items-center gap-2">
-          <Check className="h-4 w-4 text-green-500" />
-          <span className="text-sm text-green-700 dark:text-green-400">AI Tagging Ready</span>
+      <div className="rounded-md border border-green-500/30 bg-green-500/10 p-3 space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Check className="h-4 w-4 text-green-500" />
+            <span className="text-sm text-green-700 dark:text-green-400">AI Tagging Ready</span>
+            {status.serverRunning && (
+              <Badge variant="outline" className="text-xs gap-1 border-green-500/30 text-green-700 dark:text-green-400">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                </span>
+                AI Model Running
+              </Badge>
+            )}
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onRestartOllama}
+            disabled={isRestartingOllama}
+            className="h-7 px-2"
+            title="Restart AI Model"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${isRestartingOllama ? 'animate-spin' : ''}`} />
+          </Button>
         </div>
         <p className="text-xs text-muted-foreground">
           Images will be automatically tagged when added to your library.

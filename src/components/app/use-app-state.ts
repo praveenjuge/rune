@@ -35,6 +35,7 @@ export function useAppState() {
   );
   const [isDownloadingOllama, setIsDownloadingOllama] = useState(false);
   const [isDownloadingModel, setIsDownloadingModel] = useState(false);
+  const [isRestartingOllama, setIsRestartingOllama] = useState(false);
 
   const resetResults = () => {
     // This will be called by the search hook
@@ -166,6 +167,21 @@ export function useAppState() {
     }
   };
 
+  const handleRestartOllama = async () => {
+    setIsRestartingOllama(true);
+    setStatus(null);
+
+    const result = await window.rune.restartOllama();
+    setIsRestartingOllama(false);
+
+    if (result.ok === false) {
+      setStatus(result.error);
+    } else {
+      // Refresh status after restart
+      window.rune.getOllamaStatus().then(setOllamaStatus);
+    }
+  };
+
   // Set up event listeners for Ollama progress and tag updates
   useEffect(() => {
     const unsubOllama = window.rune.onOllamaDownloadProgress((progress) => {
@@ -216,6 +232,7 @@ export function useAppState() {
     modelProgress,
     isDownloadingOllama,
     isDownloadingModel,
+    isRestartingOllama,
     setStatus,
     setIsConfigOpen,
     resetResults,
@@ -227,6 +244,7 @@ export function useAppState() {
     handleRetryTagging,
     handleDownloadOllama,
     handleDownloadModel,
+    handleRestartOllama,
   };
 }
 
