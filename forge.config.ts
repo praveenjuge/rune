@@ -4,13 +4,43 @@ import { MakerZIP } from '@electron-forge/maker-zip';
 import { MakerDeb } from '@electron-forge/maker-deb';
 import { MakerRpm } from '@electron-forge/maker-rpm';
 import { VitePlugin } from '@electron-forge/plugin-vite';
-import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
+import fs from 'node:fs';
+import path from 'node:path';
+
+// Copy native modules to the .vite/build directory
+function copyNativeModules(buildPath: string) {
+  const nativeModules = ['better-sqlite3'];
+  
+  for (const moduleName of nativeModules) {
+    const srcDir = path.join(__dirname, 'node_modules', moduleName);
+    const destDir = path.join(buildPath, 'node_modules', moduleName);
+    
+    if (fs.existsSync(srcDir)) {
+      fs.cpSync(srcDir, destDir, { recursive: true });
+      console.log(`Copied ${moduleName} to ${destDir}`);
+    }
+  }
+  
+  // Also copy bindings module (dependency of better-sqlite3)
+  const bindingsModules = ['bindings', 'file-uri-to-path'];
+  for (const moduleName of bindingsModules) {
+    const srcDir = path.join(__dirname, 'node_modules', moduleName);
+    const destDir = path.join(buildPath, 'node_modules', moduleName);
+    
+    if (fs.existsSync(srcDir)) {
+      fs.cpSync(srcDir, destDir, { recursive: true });
+      console.log(`Copied ${moduleName} to ${destDir}`);
+    }
+  }
+}
 
 const config: ForgeConfig = {
   packagerConfig: {
-    asar: true,
+    asar: {
+      unpack: '**/node_modules/{better-sqlite3,bindings,file-uri-to-path}/**/*',
+    },
   },
   rebuildConfig: {},
   makers: [
@@ -19,8 +49,12 @@ const config: ForgeConfig = {
     new MakerRpm({}),
     new MakerDeb({}),
   ],
+  hooks: {
+    packageAfterCopy: async (_config, buildPath) => {
+      copyNativeModules(buildPath);
+    },
+  },
   plugins: [
-    new AutoUnpackNativesPlugin(),
     new VitePlugin({
       // `build` can specify multiple entry builds, which can be Main process, Preload scripts, Worker process, etc.
       // If you are familiar with Vite configuration, it will look really familiar.
@@ -52,8 +86,8 @@ const config: ForgeConfig = {
       [FuseV1Options.EnableCookieEncryption]: true,
       [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
       [FuseV1Options.EnableNodeCliInspectArguments]: false,
-      [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
-      [FuseV1Options.OnlyLoadAppFromAsar]: true,
+      [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: false,
+      [FuseV1Options.OnlyLoadAppFromAsar]: false,
     }),
   ],
 };
