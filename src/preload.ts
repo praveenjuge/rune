@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import {
   IPC_CHANNELS,
   type DeleteImagePayload,
+  type SearchImagesInput,
   type LibrarySettings,
 } from './shared/library';
 
@@ -12,7 +13,8 @@ contextBridge.exposeInMainWorld('rune', {
   saveSettings: (settings: LibrarySettings) =>
     ipcRenderer.invoke(IPC_CHANNELS.saveSettings, settings),
   importImages: () => ipcRenderer.invoke(IPC_CHANNELS.importImages),
-  listImages: () => ipcRenderer.invoke(IPC_CHANNELS.listImages),
+  searchImages: (payload: SearchImagesInput) =>
+    ipcRenderer.invoke(IPC_CHANNELS.searchImages, payload),
   deleteImage: (payload: DeleteImagePayload) =>
     ipcRenderer.invoke(IPC_CHANNELS.deleteImage, payload),
 });

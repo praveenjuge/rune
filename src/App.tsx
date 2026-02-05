@@ -1,7 +1,23 @@
-import { type ReactNode, useEffect, useMemo, useState } from "react";
-import { FolderOpen, Loader2, Plus, Settings } from "lucide-react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import {
+  FolderOpen,
+  Laptop,
+  Loader2,
+  Moon,
+  Plus,
+  Search,
+  Settings,
+  Sun,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { useTheme } from "@/components/theme-provider";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -12,10 +28,14 @@ import {
   DEFAULT_LICENSE_KEY,
   type LibraryImage,
   type LibrarySettings,
+  type SearchCursor,
+  SEARCH_PAGE_SIZE,
 } from "./shared/library";
 
 const inputClassName =
   "flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
+const searchInputClassName =
+  "h-10 w-full rounded-md border-0 bg-transparent pr-2 pl-8 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0";
 
 export function App() {
   const [settings, setSettings] = useState<LibrarySettings | null>(null);
@@ -24,8 +44,12 @@ export function App() {
   const [licenseKey, setLicenseKey] = useState(DEFAULT_LICENSE_KEY);
   const [images, setImages] = useState<LibraryImage[]>([]);
   const [search, setSearch] = useState("");
+  const [cursor, setCursor] = useState<SearchCursor | null>(null);
+  const [hasMore, setHasMore] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [configMode, setConfigMode] = useState<"onboarding" | "settings">(
     "onboarding",
@@ -33,14 +57,17 @@ export function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const searchRequestIdRef = useRef(0);
+  const cursorRef = useRef<SearchCursor | null>(null);
 
-  const filteredImages = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    if (!query) return images;
-    return images.filter((image) =>
-      image.originalName.toLowerCase().includes(query),
-    );
-  }, [images, search]);
+  const resetResults = () => {
+    setImages([]);
+    setCursor(null);
+    setHasMore(false);
+  };
 
   const setConfigDefaults = (
     nextSettings: LibrarySettings | null,
@@ -51,15 +78,56 @@ export function App() {
     setLicenseKey(nextSettings?.licenseKey ?? DEFAULT_LICENSE_KEY);
   };
 
-  const mergeImages = (
-    current: LibraryImage[],
-    incoming: LibraryImage[],
-  ): LibraryImage[] => {
-    const map = new Map<string, LibraryImage>();
-    for (const image of current) map.set(image.id, image);
-    for (const image of incoming) map.set(image.id, image);
-    return [...map.values()].sort((a, b) => b.addedAt.localeCompare(a.addedAt));
-  };
+  const runSearch = useCallback(
+    async (reset: boolean, nextCursor?: SearchCursor | null) => {
+      if (!settings) return;
+      const requestId = (searchRequestIdRef.current += 1);
+      const query = search.trim();
+
+      if (reset) {
+        setIsSearching(true);
+        setStatus(null);
+        setCursor(null);
+      } else {
+        setIsLoadingMore(true);
+      }
+
+      try {
+        const result = await window.rune.searchImages({
+          query,
+          limit: SEARCH_PAGE_SIZE,
+          cursor: reset ? null : nextCursor ?? cursorRef.current,
+        });
+
+        if (requestId !== searchRequestIdRef.current) {
+          return;
+        }
+
+        if (!result.ok) {
+          setStatus(result.error);
+        } else {
+          setImages((current) =>
+            reset ? result.data.items : [...current, ...result.data.items],
+          );
+          setCursor(result.data.nextCursor);
+          setHasMore(Boolean(result.data.nextCursor));
+        }
+      } catch (error) {
+        if (requestId !== searchRequestIdRef.current) {
+          return;
+        }
+        setStatus("Unable to search the library.");
+      } finally {
+        if (requestId === searchRequestIdRef.current) {
+          if (reset) {
+            setIsSearching(false);
+          }
+          setIsLoadingMore(false);
+        }
+      }
+    },
+    [search, settings],
+  );
 
   const handleBootstrap = async () => {
     try {
@@ -69,12 +137,7 @@ export function App() {
       setConfigDefaults(bootstrap.settings, bootstrap.defaultLibraryPath);
 
       if (bootstrap.settings) {
-        const result = await window.rune.listImages();
-        if (result.ok) {
-          setImages(result.data);
-        } else {
-          setStatus(result.error);
-        }
+        resetResults();
       } else {
         setConfigMode("onboarding");
         setIsConfigOpen(true);
@@ -89,6 +152,45 @@ export function App() {
   useEffect(() => {
     handleBootstrap();
   }, []);
+
+  useEffect(() => {
+    cursorRef.current = cursor;
+  }, [cursor]);
+
+  useEffect(() => {
+    if (!settings) return;
+    const timeout = window.setTimeout(() => {
+      resetResults();
+      runSearch(true);
+    }, 200);
+
+    return () => window.clearTimeout(timeout);
+  }, [runSearch, search, settings]);
+
+  useEffect(() => {
+    if (!sentinelRef.current) return;
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+    }
+
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (
+          entry?.isIntersecting &&
+          hasMore &&
+          !isSearching &&
+          !isLoadingMore
+        ) {
+          runSearch(false);
+        }
+      },
+      { rootMargin: "200px" },
+    );
+
+    observerRef.current.observe(sentinelRef.current);
+    return () => observerRef.current?.disconnect();
+  }, [hasMore, isLoadingMore, isSearching, runSearch]);
 
   const handleOpenSettings = () => {
     setStatus(null);
@@ -121,13 +223,7 @@ export function App() {
     setSettings(result.data);
     setConfigMode("settings");
     setIsConfigOpen(false);
-
-    const imagesResult = await window.rune.listImages();
-    if (imagesResult.ok) {
-      setImages(imagesResult.data);
-    } else {
-      setStatus(imagesResult.error);
-    }
+    resetResults();
   };
 
   const handleAddImages = async () => {
@@ -149,7 +245,8 @@ export function App() {
     }
 
     if (result.data.length > 0) {
-      setImages((current) => mergeImages(current, result.data));
+      resetResults();
+      await runSearch(true);
     }
   };
 
@@ -175,6 +272,8 @@ export function App() {
         onAdd={handleAddImages}
         onOpenSettings={handleOpenSettings}
         isImporting={isImporting}
+        onFocusSearch={() => searchInputRef.current?.focus()}
+        searchInputRef={searchInputRef}
       />
 
       <main className="flex w-full flex-1 flex-col gap-0 overflow-y-auto pb-6">
@@ -185,19 +284,27 @@ export function App() {
             </div>
           ) : null}
 
-          {isBootstrapping ? (
+          {isBootstrapping || (isSearching && images.length === 0) ? (
             <LoadingState />
-          ) : filteredImages.length === 0 ? (
-            <EmptyState onAdd={handleAddImages} />
+          ) : images.length === 0 ? (
+            search.trim() ? (
+              <EmptySearchState query={search} />
+            ) : (
+              <EmptyState onAdd={handleAddImages} />
+            )
           ) : null}
         </div>
 
-        {!isBootstrapping && filteredImages.length > 0 ? (
-          <ImageGrid
-            images={filteredImages}
-            deletingId={deletingId}
-            onDelete={handleDeleteImage}
-          />
+        {!isBootstrapping && images.length > 0 ? (
+          <>
+            <ImageGrid
+              images={images}
+              deletingId={deletingId}
+              onDelete={handleDeleteImage}
+            />
+            <div ref={sentinelRef} className="h-6" />
+            {isLoadingMore ? <LoadingMore /> : null}
+          </>
         ) : null}
       </main>
 
@@ -225,6 +332,8 @@ type HeaderProps = {
   onAdd: () => void;
   onOpenSettings: () => void;
   isImporting: boolean;
+  onFocusSearch: () => void;
+  searchInputRef: React.RefObject<HTMLInputElement>;
 };
 
 function Header({
@@ -233,16 +342,26 @@ function Header({
   onAdd,
   onOpenSettings,
   isImporting,
+  onFocusSearch,
+  searchInputRef,
 }: HeaderProps) {
+  const handleHeaderClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+    if (target.closest("button")) return;
+    if (target.tagName === "INPUT") return;
+    onFocusSearch();
+  };
+
   return (
-    <header className="drag-region shrink-0 bg-background/70 backdrop-blur">
-      <div className="mx-auto max-w-6xl px-6 py-4 pl-16">
+    <header className="shrink-0 bg-background">
+      <div className="w-full px-4 py-2" onClick={handleHeaderClick}>
         <HeaderActions
           search={search}
           onSearch={onSearch}
           onAdd={onAdd}
           onOpenSettings={onOpenSettings}
           isImporting={isImporting}
+          searchInputRef={searchInputRef}
         />
       </div>
     </header>
@@ -255,6 +374,7 @@ type HeaderActionsProps = {
   onAdd: () => void;
   onOpenSettings: () => void;
   isImporting: boolean;
+  searchInputRef: React.RefObject<HTMLInputElement>;
 };
 
 function HeaderActions({
@@ -263,20 +383,25 @@ function HeaderActions({
   onAdd,
   onOpenSettings,
   isImporting,
+  searchInputRef,
 }: HeaderActionsProps) {
   return (
     <div className="flex flex-1 items-center gap-2">
-      <input
-        value={search}
-        onChange={(event) => onSearch(event.target.value)}
-        placeholder="Search"
-        aria-label="Search images"
-        className={`${inputClassName} no-drag min-w-0 flex-1`}
-      />
+      <div className="relative flex min-w-0 flex-1 items-center">
+        <Search className="pointer-events-none absolute left-2 h-4 w-4 text-muted-foreground" />
+        <input
+          ref={searchInputRef}
+          value={search}
+          onChange={(event) => onSearch(event.target.value)}
+          placeholder="Search"
+          aria-label="Search images"
+          className={`${searchInputClassName} min-w-0 flex-1`}
+        />
+      </div>
       <Button
         onClick={onAdd}
         disabled={isImporting}
-        className="no-drag"
+        className="shrink-0"
         size="icon"
         aria-label="Add images"
       >
@@ -289,7 +414,7 @@ function HeaderActions({
       <Button
         variant="outline"
         onClick={onOpenSettings}
-        className="no-drag"
+        className="shrink-0"
         size="icon"
         aria-label="Library settings"
       >
@@ -316,6 +441,24 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
       <div>
         <Button onClick={onAdd}>Add images</Button>
       </div>
+    </div>
+  );
+}
+
+function EmptySearchState({ query }: { query: string }) {
+  return (
+    <div className="flex flex-col gap-2 rounded-md border bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
+      <p className="text-base font-medium text-foreground">No results.</p>
+      <p>We couldn't find anything for "{query.trim()}".</p>
+    </div>
+  );
+}
+
+function LoadingMore() {
+  return (
+    <div className="mx-auto mt-2 flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+      <Loader2 className="h-4 w-4 animate-spin" />
+      Loading more…
     </div>
   );
 }
@@ -381,6 +524,8 @@ function ConfigModal({
   onLicenseChange,
   onSave,
 }: ConfigModalProps) {
+  const { theme, setTheme } = useTheme();
+
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-background/80 px-6 py-8">
       <div className="w-full max-w-lg rounded-md border bg-background p-6 shadow-lg">
@@ -412,6 +557,42 @@ function ConfigModal({
               className={inputClassName}
             />
           </FieldGroup>
+          {mode === "settings" ? (
+            <FieldGroup
+              label="Appearance"
+              note="System uses your OS appearance preference."
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant={theme === "system" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTheme("system")}
+                >
+                  <Laptop className="h-4 w-4" />
+                  System
+                </Button>
+                <Button
+                  type="button"
+                  variant={theme === "light" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTheme("light")}
+                >
+                  <Sun className="h-4 w-4" />
+                  Light
+                </Button>
+                <Button
+                  type="button"
+                  variant={theme === "dark" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTheme("dark")}
+                >
+                  <Moon className="h-4 w-4" />
+                  Dark
+                </Button>
+              </div>
+            </FieldGroup>
+          ) : null}
         </div>
 
         {status ? (

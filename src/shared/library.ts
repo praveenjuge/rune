@@ -12,6 +12,8 @@ export const IMAGE_EXTENSIONS = [
 export const DEFAULT_LICENSE_KEY = "0000";
 export const RUNE_PROTOCOL = "rune";
 export const RUNE_PROTOCOL_HOST = "local";
+export const SEARCH_PAGE_SIZE = 200;
+export const MIN_SQLITE_VERSION = "3.51.2";
 
 export type LibrarySettings = {
   libraryPath: string;
@@ -38,6 +40,22 @@ export type DeleteImageResult = {
   id: string;
 };
 
+export type SearchCursor = {
+  addedAt: string;
+  id: string;
+};
+
+export type SearchImagesInput = {
+  query: string;
+  limit: number;
+  cursor?: SearchCursor | null;
+};
+
+export type SearchImagesResult = {
+  items: LibraryImage[];
+  nextCursor: SearchCursor | null;
+};
+
 export type IpcResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: string };
@@ -47,7 +65,7 @@ export const IPC_CHANNELS = {
   selectLibrary: "rune:select-library",
   saveSettings: "rune:save-settings",
   importImages: "rune:import-images",
-  listImages: "rune:list-images",
+  searchImages: "rune:search-images",
   deleteImage: "rune:delete-image",
 } as const;
 

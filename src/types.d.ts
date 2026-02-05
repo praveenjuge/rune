@@ -4,6 +4,8 @@ import type {
   IpcResult,
   LibraryImage,
   LibrarySettings,
+  SearchImagesInput,
+  SearchImagesResult,
 } from './shared/library';
 
 declare global {
@@ -18,7 +20,9 @@ declare global {
         settings: LibrarySettings,
       ) => Promise<IpcResult<LibrarySettings>>;
       importImages: () => Promise<IpcResult<LibraryImage[]>>;
-      listImages: () => Promise<IpcResult<LibraryImage[]>>;
+      searchImages: (
+        payload: SearchImagesInput,
+      ) => Promise<IpcResult<SearchImagesResult>>;
       deleteImage: (
         payload: DeleteImagePayload,
       ) => Promise<IpcResult<DeleteImageResult>>;

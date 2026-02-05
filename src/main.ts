@@ -14,9 +14,17 @@ import {
   type IpcResult,
   type LibraryImage,
   type LibrarySettings,
+  type SearchImagesInput,
+  type SearchImagesResult,
   isSupportedImage,
   toRuneUrl,
 } from './shared/library';
+import {
+  deleteImageById,
+  getImageById,
+  insertImages,
+  searchImages,
+} from './main/db';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -45,7 +53,7 @@ const createWindow = () => {
     width: 800,
     height: 600,
     title: 'Rune',
-    titleBarStyle: isMac ? 'hiddenInset' : 'hidden',
+    titleBarStyle: isMac ? 'default' : 'hidden',
     titleBarOverlay: isWindows
       ? {
           color: '#ffffff',
@@ -53,10 +61,7 @@ const createWindow = () => {
           height: 40,
         }
       : undefined,
-    backgroundColor: isMac ? '#00000000' : '#ffffff',
-    transparent: isMac,
-    vibrancy: isMac ? 'sidebar' : undefined,
-    visualEffectState: isMac ? 'active' : undefined,
+    backgroundColor: '#ffffff',
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -80,98 +85,16 @@ const createWindow = () => {
 };
 
 const SETTINGS_FILENAME = 'settings.json';
-const INDEX_FILENAME = 'library.json';
-
-type LibraryIndex = {
-  version: 1;
-  images: LibraryImage[];
-};
-
 const getSettingsPath = () =>
   path.join(app.getPath('userData'), SETTINGS_FILENAME);
 
-const getIndexPath = (libraryPath: string) =>
-  path.join(libraryPath, INDEX_FILENAME);
-
 const normalizeLibraryPath = (libraryPath: string) =>
   path.normalize(libraryPath.trim());
-
-const toLibraryUrl = (filePath: string) => toRuneUrl(filePath);
 
 const ensureLibraryDir = async (libraryPath: string) => {
   await fs.mkdir(libraryPath, { recursive: true });
 };
 
-const hydrateImage = (image: LibraryImage): LibraryImage => ({
-  ...image,
-  url: toLibraryUrl(image.filePath),
-});
-
-const isValidImageRecord = (image: LibraryImage) =>
-  Boolean(
-    image &&
-      typeof image.id === 'string' &&
-      typeof image.originalName === 'string' &&
-      typeof image.storedName === 'string' &&
-      typeof image.filePath === 'string' &&
-      typeof image.addedAt === 'string' &&
-      typeof image.bytes === 'number',
-  );
-
-const rebuildIndex = async (libraryPath: string): Promise<LibraryIndex> => {
-  try {
-    const entries = await fs.readdir(libraryPath, { withFileTypes: true });
-    const images: LibraryImage[] = [];
-
-    for (const entry of entries) {
-      if (!entry.isFile()) continue;
-      if (!isSupportedImage(entry.name)) continue;
-
-      const filePath = path.join(libraryPath, entry.name);
-      const stat = await fs.stat(filePath);
-      const addedAt = (stat.birthtime ?? stat.mtime).toISOString();
-
-      images.push({
-        id: randomUUID(),
-        originalName: entry.name,
-        storedName: entry.name,
-        filePath,
-        url: toLibraryUrl(filePath),
-        addedAt,
-        bytes: stat.size,
-      });
-    }
-
-    return { version: 1, images };
-  } catch (error) {
-    return { version: 1, images: [] };
-  }
-};
-
-const readIndex = async (libraryPath: string): Promise<LibraryIndex> => {
-  const indexPath = getIndexPath(libraryPath);
-  try {
-    const raw = await fs.readFile(indexPath, 'utf-8');
-    const parsed = JSON.parse(raw) as LibraryIndex;
-    if (!parsed || !Array.isArray(parsed.images)) {
-      throw new Error('Invalid index shape');
-    }
-
-    return {
-      version: 1,
-      images: parsed.images.filter(isValidImageRecord).map(hydrateImage),
-    };
-  } catch (error) {
-    const rebuilt = await rebuildIndex(libraryPath);
-    await writeIndex(libraryPath, rebuilt);
-    return rebuilt;
-  }
-};
-
-const writeIndex = async (libraryPath: string, index: LibraryIndex) => {
-  const indexPath = getIndexPath(libraryPath);
-  await fs.writeFile(indexPath, JSON.stringify(index, null, 2), 'utf-8');
-};
 
 const loadSettings = async (): Promise<LibrarySettings | null> => {
   try {
@@ -232,21 +155,46 @@ const validateSettingsInput = (settings: LibrarySettings): string | null => {
   return null;
 };
 
+const validateSearchInput = (payload: SearchImagesInput): string | null => {
+  if (!payload || typeof payload.query !== 'string') {
+    return 'Invalid search payload.';
+  }
+
+  if (typeof payload.limit !== 'number' || payload.limit <= 0) {
+    return 'Invalid search limit.';
+  }
+
+  if (payload.cursor) {
+    if (
+      typeof payload.cursor.addedAt !== 'string' ||
+      typeof payload.cursor.id !== 'string'
+    ) {
+      return 'Invalid search cursor.';
+    }
+  }
+
+  return null;
+};
+
 const success = <T,>(data: T): IpcResult<T> => ({ ok: true, data });
 const failure = (error: string): IpcResult<never> => ({ ok: false, error });
 
-const listImages = async (
+const searchImagesHandler = async (
   libraryPath: string,
-): Promise<IpcResult<LibraryImage[]>> => {
+  payload: SearchImagesInput,
+): Promise<IpcResult<SearchImagesResult>> => {
   try {
     await ensureLibraryDir(libraryPath);
-    const index = await readIndex(libraryPath);
-    const sorted = [...index.images].sort((a, b) =>
-      b.addedAt.localeCompare(a.addedAt),
-    );
-    return success(sorted);
+    const error = validateSearchInput(payload);
+    if (error) {
+      return failure(error);
+    }
+    const result = await searchImages(libraryPath, payload);
+    return success(result);
   } catch (error) {
-    return failure('Unable to read library index.');
+    const message =
+      error instanceof Error ? error.message : 'Unable to search library.';
+    return failure(message);
   }
 };
 
@@ -269,8 +217,12 @@ const deleteImage = async (
     return failure('Invalid image payload.');
   }
 
-  const index = await readIndex(libraryPath);
-  const match = index.images.find((image) => image.id === payload.id);
+  let match: LibraryImage | null = null;
+  try {
+    match = await getImageById(libraryPath, payload.id);
+  } catch (error) {
+    return failure('Unable to delete image.');
+  }
   if (!match) {
     return failure('Image not found.');
   }
@@ -288,11 +240,11 @@ const deleteImage = async (
     }
   }
 
-  const nextIndex: LibraryIndex = {
-    version: 1,
-    images: index.images.filter((image) => image.id !== payload.id),
-  };
-  await writeIndex(libraryPath, nextIndex);
+  try {
+    await deleteImageById(libraryPath, payload.id);
+  } catch (error) {
+    return failure('Unable to delete image.');
+  }
 
   return success({ id: payload.id });
 };
@@ -315,7 +267,6 @@ const importImages = async (
     return success([]);
   }
 
-  const index = await readIndex(libraryPath);
   const imported: LibraryImage[] = [];
 
   for (const filePath of dialogResult.filePaths) {
@@ -333,17 +284,20 @@ const importImages = async (
       originalName: path.basename(filePath),
       storedName,
       filePath: destination,
-      url: toLibraryUrl(destination),
+      url: toRuneUrl(destination),
       addedAt: now,
       bytes: stat.size,
     };
 
     imported.push(record);
-    index.images.push(record);
   }
 
-  await writeIndex(libraryPath, index);
-  return success(imported);
+  try {
+    await insertImages(libraryPath, imported);
+    return success(imported);
+  } catch (error) {
+    return failure('Unable to save images.');
+  }
 };
 
 // This method will be called when Electron has finished
@@ -412,13 +366,6 @@ app.whenReady().then(() => {
           libraryPath: normalizedPath,
         });
 
-        const indexPath = getIndexPath(normalizedPath);
-        try {
-          await fs.access(indexPath);
-        } catch (indexError) {
-          await writeIndex(normalizedPath, { version: 1, images: [] });
-        }
-
         return success(next);
       } catch (saveError) {
         return failure('Unable to save settings.');
@@ -439,14 +386,14 @@ app.whenReady().then(() => {
   );
 
   ipcMain.handle(
-    IPC_CHANNELS.listImages,
-    async (): Promise<IpcResult<LibraryImage[]>> => {
+    IPC_CHANNELS.searchImages,
+    async (_event, payload: SearchImagesInput): Promise<IpcResult<SearchImagesResult>> => {
       const settings = await loadSettings();
       if (!settings) {
         return failure('Library settings not found.');
       }
 
-      return listImages(settings.libraryPath);
+      return searchImagesHandler(settings.libraryPath, payload);
     },
   );
 

@@ -8,7 +8,4 @@ script = ""
 [[actions]]
 name = "Run"
 icon = "run"
-command = '''
-bun install
-bun run start
-'''
+command = "bun install && bun run start"
