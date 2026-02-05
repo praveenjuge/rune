@@ -18,9 +18,7 @@ export function useAppState() {
   const [isImporting, setIsImporting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
-  const [configMode, setConfigMode] = useState<"onboarding" | "settings">(
-    "onboarding",
-  );
+  const [hasSeenWelcome, setHasSeenWelcome] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Ollama state
@@ -60,8 +58,9 @@ export function useAppState() {
 
       if (bootstrap.settings) {
         resetResults();
+        setHasSeenWelcome(true);
       } else {
-        setConfigMode("onboarding");
+        // First time: settings modal opens with default path already set
         setIsConfigOpen(true);
       }
     } catch (error) {
@@ -73,7 +72,6 @@ export function useAppState() {
 
   const handleOpenSettings = () => {
     setStatus(null);
-    setConfigMode("settings");
     setConfigDefaults(settings, defaultLibraryPath);
     setIsConfigOpen(true);
     window.rune.getOllamaStatus().then(setOllamaStatus);
@@ -89,9 +87,7 @@ export function useAppState() {
   const handleSaveSettings = async () => {
     setStatus(null);
     setIsSaving(true);
-    const result = await window.rune.saveSettings({
-      libraryPath,
-    });
+    const result = await window.rune.saveSettings();
     setIsSaving(false);
 
     if (result.ok === false) {
@@ -100,7 +96,7 @@ export function useAppState() {
     }
 
     setSettings(result.data);
-    setConfigMode("settings");
+    setHasSeenWelcome(true);
     setIsConfigOpen(false);
     resetResults();
   };
@@ -108,7 +104,6 @@ export function useAppState() {
   const handleAddImages = async () => {
     setStatus(null);
     if (!settings) {
-      setConfigMode("onboarding");
       setConfigDefaults(null, defaultLibraryPath);
       setIsConfigOpen(true);
       return;
@@ -208,12 +203,13 @@ export function useAppState() {
   return {
     settings,
     libraryPath,
+    defaultLibraryPath,
     status,
     isBootstrapping,
     isImporting,
     isSaving,
     isConfigOpen,
-    configMode,
+    hasSeenWelcome,
     deletingId,
     ollamaStatus,
     ollamaProgress,

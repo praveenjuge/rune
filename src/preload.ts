@@ -4,7 +4,6 @@ import {
   IPC_EVENTS,
   type DeleteImagePayload,
   type SearchImagesInput,
-  type LibrarySettings,
   type DownloadProgress,
   type ImageTagsUpdated,
 } from './shared/library';
@@ -13,8 +12,8 @@ contextBridge.exposeInMainWorld('rune', {
   getBootstrap: () => ipcRenderer.invoke(IPC_CHANNELS.getBootstrap),
   selectLibrary: (defaultPath: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.selectLibrary, defaultPath),
-  saveSettings: (settings: LibrarySettings) =>
-    ipcRenderer.invoke(IPC_CHANNELS.saveSettings, settings),
+  saveSettings: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.saveSettings),
   importImages: () => ipcRenderer.invoke(IPC_CHANNELS.importImages),
   searchImages: (payload: SearchImagesInput) =>
     ipcRenderer.invoke(IPC_CHANNELS.searchImages, payload),

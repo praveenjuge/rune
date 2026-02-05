@@ -12,7 +12,7 @@ import {
 
 const DB_DIRNAME = '.rune';
 const DB_FILENAME = 'library.sqlite';
-const DB_SCHEMA_VERSION = 2; // Bumped for AI tags support
+const DB_SCHEMA_VERSION = 3; // Bumped for settings table
 const MAX_PAGE_SIZE = 500;
 
 type DbImageRow = Omit<LibraryImage, 'url'>;
@@ -115,6 +115,11 @@ const ensureSchema = (db: Database.Database) => {
       ai_tags TEXT DEFAULT NULL,
       ai_tag_status TEXT DEFAULT 'pending'
     );
+    CREATE TABLE IF NOT EXISTS settings (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
     CREATE VIRTUAL TABLE IF NOT EXISTS images_fts
       USING fts5(id UNINDEXED, original_name, ai_tags, tokenize='unicode61');
     CREATE INDEX IF NOT EXISTS images_added_at_idx
@@ -129,48 +134,64 @@ const migrateSchema = (db: Database.Database, fromVersion: number) => {
   if (fromVersion < 2) {
     // Migration from version 1 to 2: Add AI tags columns
     console.info('[rune] Migrating database to version 2 (AI tags)...');
-    
+
     // Add new columns to images table
     const columns = db.prepare(`PRAGMA table_info(images)`).all() as Array<{ name: string }>;
     const columnNames = columns.map(c => c.name);
-    
+
     if (!columnNames.includes('ai_tags')) {
       db.exec(`ALTER TABLE images ADD COLUMN ai_tags TEXT DEFAULT NULL`);
     }
     if (!columnNames.includes('ai_tag_status')) {
       db.exec(`ALTER TABLE images ADD COLUMN ai_tag_status TEXT DEFAULT 'pending'`);
     }
-    
+
     // Recreate FTS table to include ai_tags
     // First, check if old FTS table exists and migrate data
     const ftsExists = db.prepare(
       `SELECT name FROM sqlite_master WHERE type='table' AND name='images_fts'`
     ).get();
-    
+
     if (ftsExists) {
       // Drop old FTS table and recreate with ai_tags
       db.exec(`DROP TABLE IF EXISTS images_fts`);
     }
-    
+
     db.exec(`
       CREATE VIRTUAL TABLE IF NOT EXISTS images_fts
         USING fts5(id UNINDEXED, original_name, ai_tags, tokenize='unicode61');
     `);
-    
+
     // Repopulate FTS table from images
     db.exec(`
       INSERT INTO images_fts (id, original_name, ai_tags)
       SELECT id, original_name, ai_tags FROM images
     `);
-    
+
     // Create index for ai_tag_status
     db.exec(`
       CREATE INDEX IF NOT EXISTS images_ai_tag_status_idx
         ON images(ai_tag_status);
     `);
-    
+
     db.pragma(`user_version = 2`);
     console.info('[rune] Migration to version 2 complete.');
+  }
+
+  if (fromVersion < 3) {
+    // Migration from version 2 to 3: Add settings table
+    console.info('[rune] Migrating database to version 3 (settings table)...');
+
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS settings (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `);
+
+    db.pragma(`user_version = 3`);
+    console.info('[rune] Migration to version 3 complete.');
   }
 };
 
@@ -337,11 +358,21 @@ const openDatabase = async (libraryPath: string): Promise<DbContext> => {
     migrateSchema(db, userVersion);
   }
 
-  console.info(
-    `[rune] SQLite ${versionRow.version} (FTS5 ${
-      ftsRow.enabled ? 'enabled' : 'disabled'
-    })`,
-  );
+  // Safety check: ensure settings table exists (in case of previous bug)
+  const settingsTableExists = db
+    .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='settings'")
+    .get() as { name: string } | undefined;
+  if (!settingsTableExists) {
+    console.info('[rune] Settings table missing, creating it...');
+    db.exec('CREATE TABLE settings (' +
+      'id INTEGER PRIMARY KEY CHECK (id = 1), ' +
+      'created_at TEXT NOT NULL, ' +
+      'updated_at TEXT NOT NULL' +
+      ');');
+  }
+
+  const ftsEnabled = ftsRow.enabled ? 'enabled' : 'disabled';
+  console.info('[rune] SQLite ' + versionRow.version + ' (FTS5 ' + ftsEnabled + ')');
 
   return { db, statements: prepareStatements(db) };
 };
@@ -501,4 +532,65 @@ export const retryFailedTags = async (
 ): Promise<void> => {
   const { statements } = await getDb(libraryPath);
   statements.setTagStatus.run({ id, ai_tag_status: 'pending' });
+};
+
+// Settings functions
+type DbSettingsRow = {
+  id: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export const loadSettings = async (
+  libraryPath: string,
+): Promise<LibrarySettings | null> => {
+  try {
+    const { db } = await getDb(libraryPath);
+    const row = db
+      .prepare('SELECT * FROM settings WHERE id = 1')
+      .get() as DbSettingsRow | undefined;
+
+    if (!row) return null;
+
+    return {
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  } catch {
+    return null;
+  }
+};
+
+export const saveSettings = async (
+  libraryPath: string,
+): Promise<LibrarySettings> => {
+  const { db } = await getDb(libraryPath);
+  const now = new Date().toISOString();
+
+  try {
+    // Check if settings row exists
+    const existing = db.prepare('SELECT id, created_at FROM settings WHERE id = 1').get() as { id: number; created_at: string } | undefined;
+
+    if (existing) {
+      // Update existing settings
+      db.prepare('UPDATE settings SET updated_at = ? WHERE id = 1').run(now);
+      return {
+        createdAt: existing.created_at,
+        updatedAt: now,
+      };
+    } else {
+      // Insert new settings
+      db.prepare('INSERT INTO settings (id, created_at, updated_at) VALUES (1, ?, ?)').run(
+        now,
+        now,
+      );
+      return {
+        createdAt: now,
+        updatedAt: now,
+      };
+    }
+  } catch (error) {
+    console.error('[rune] Failed to save settings:', error);
+    throw error;
+  }
 };

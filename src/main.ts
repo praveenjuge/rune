@@ -4,7 +4,6 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import {
-  DEFAULT_LICENSE_KEY,
   IMAGE_EXTENSIONS,
   IPC_CHANNELS,
   IPC_EVENTS,
@@ -30,6 +29,8 @@ import {
   insertImages,
   retryFailedTags,
   searchImages,
+  loadSettings,
+  saveSettings,
 } from './main/db';
 import { ollamaManager, taggingQueue } from './main/ollama';
 
@@ -91,71 +92,14 @@ const createWindow = () => {
   mainWindow.webContents.openDevTools();
 };
 
-const SETTINGS_FILENAME = 'settings.json';
-const getSettingsPath = () =>
-  path.join(app.getPath('userData'), SETTINGS_FILENAME);
+const RUNE_FOLDER_NAME = 'Rune';
 
-const normalizeLibraryPath = (libraryPath: string) =>
-  path.normalize(libraryPath.trim());
+// Rune library is always at Documents/Rune - all data stored here
+const getRuneLibraryPath = () =>
+  path.join(app.getPath('documents'), RUNE_FOLDER_NAME);
 
 const ensureLibraryDir = async (libraryPath: string) => {
   await fs.mkdir(libraryPath, { recursive: true });
-};
-
-
-const loadSettings = async (): Promise<LibrarySettings | null> => {
-  try {
-    const raw = await fs.readFile(getSettingsPath(), 'utf-8');
-    const parsed = JSON.parse(raw) as LibrarySettings;
-    if (
-      !parsed ||
-      typeof parsed.libraryPath !== 'string' ||
-      typeof parsed.licenseKey !== 'string'
-    ) {
-      return null;
-    }
-
-    return parsed;
-  } catch (error) {
-    return null;
-  }
-};
-
-const saveSettings = async (
-  settings: LibrarySettings,
-): Promise<LibrarySettings> => {
-  const now = new Date().toISOString();
-  const normalized: LibrarySettings = {
-    libraryPath: normalizeLibraryPath(settings.libraryPath),
-    licenseKey: DEFAULT_LICENSE_KEY,
-    createdAt: settings.createdAt ?? now,
-    updatedAt: now,
-  };
-
-  await fs.mkdir(path.dirname(getSettingsPath()), { recursive: true });
-  await fs.writeFile(
-    getSettingsPath(),
-    JSON.stringify(normalized, null, 2),
-    'utf-8',
-  );
-  return normalized;
-};
-
-const validateSettingsInput = (settings: LibrarySettings): string | null => {
-  if (!settings || typeof settings.libraryPath !== 'string') {
-    return 'Library path is required.';
-  }
-
-  const normalizedPath = normalizeLibraryPath(settings.libraryPath);
-  if (!normalizedPath) {
-    return 'Library path is required.';
-  }
-
-  if (!path.isAbsolute(normalizedPath)) {
-    return 'Library path must be absolute.';
-  }
-
-  return null;
 };
 
 const validateSearchInput = (payload: SearchImagesInput): string | null => {
@@ -357,9 +301,10 @@ app.whenReady().then(async () => {
   createWindow();
 
   // Load settings and start tagging queue if model is installed
-  const settings = await loadSettings();
+  const runeLibraryPath = getRuneLibraryPath();
+  const settings = await loadSettings(runeLibraryPath);
   if (settings) {
-    taggingQueue.setLibraryPath(settings.libraryPath);
+    taggingQueue.setLibraryPath(runeLibraryPath);
     const status = await ollamaManager.checkStatus();
     if (status.binaryInstalled) {
       try {
@@ -374,10 +319,14 @@ app.whenReady().then(async () => {
   }
 
   ipcMain.handle(IPC_CHANNELS.getBootstrap, async () => {
-    const settings = await loadSettings();
-    const defaultLibraryPath = path.join(app.getPath('documents'), 'Rune');
+    const runeLibraryPath = getRuneLibraryPath();
+    const settings = await loadSettings(runeLibraryPath);
     const ollamaStatus = await ollamaManager.checkStatus();
-    return { settings, defaultLibraryPath, ollamaStatus };
+
+    // Create the Rune folder if it doesn't exist
+    await ensureLibraryDir(runeLibraryPath);
+
+    return { settings, defaultLibraryPath: runeLibraryPath, ollamaStatus };
   });
 
   ipcMain.handle(
@@ -398,27 +347,23 @@ app.whenReady().then(async () => {
 
   ipcMain.handle(
     IPC_CHANNELS.saveSettings,
-    async (_event, settings: LibrarySettings): Promise<IpcResult<LibrarySettings>> => {
-      const error = validateSettingsInput(settings);
-      if (error) {
-        return failure(error);
-      }
-
-      const normalizedPath = normalizeLibraryPath(settings.libraryPath);
+    async (): Promise<IpcResult<LibrarySettings>> => {
+      const runeLibraryPath = getRuneLibraryPath();
 
       try {
-        await ensureLibraryDir(normalizedPath);
-        const next = await saveSettings({
-          ...settings,
-          libraryPath: normalizedPath,
-        });
+        await ensureLibraryDir(runeLibraryPath);
+        console.info('[rune] Saving settings to:', runeLibraryPath);
+        const saved = await saveSettings(runeLibraryPath);
+        console.info('[rune] Settings saved successfully');
 
         // Update tagging queue library path
-        taggingQueue.setLibraryPath(normalizedPath);
+        taggingQueue.setLibraryPath(runeLibraryPath);
 
-        return success(next);
+        return success(saved);
       } catch (saveError) {
-        return failure('Unable to save settings.');
+        console.error('[rune] Failed to save settings:', saveError);
+        const message = saveError instanceof Error ? saveError.message : 'Unable to save settings.';
+        return failure(message);
       }
     },
   );
@@ -426,36 +371,39 @@ app.whenReady().then(async () => {
   ipcMain.handle(
     IPC_CHANNELS.importImages,
     async (): Promise<IpcResult<LibraryImage[]>> => {
-      const settings = await loadSettings();
+      const runeLibraryPath = getRuneLibraryPath();
+      const settings = await loadSettings(runeLibraryPath);
       if (!settings) {
         return failure('Library settings not found.');
       }
 
-      return importImages(settings.libraryPath);
+      return importImages(runeLibraryPath);
     },
   );
 
   ipcMain.handle(
     IPC_CHANNELS.searchImages,
     async (_event, payload: SearchImagesInput): Promise<IpcResult<SearchImagesResult>> => {
-      const settings = await loadSettings();
+      const runeLibraryPath = getRuneLibraryPath();
+      const settings = await loadSettings(runeLibraryPath);
       if (!settings) {
         return failure('Library settings not found.');
       }
 
-      return searchImagesHandler(settings.libraryPath, payload);
+      return searchImagesHandler(runeLibraryPath, payload);
     },
   );
 
   ipcMain.handle(
     IPC_CHANNELS.deleteImage,
     async (_event, payload: DeleteImagePayload): Promise<IpcResult<DeleteImageResult>> => {
-      const settings = await loadSettings();
+      const runeLibraryPath = getRuneLibraryPath();
+      const settings = await loadSettings(runeLibraryPath);
       if (!settings) {
         return failure('Library settings not found.');
       }
 
-      return deleteImage(settings.libraryPath, payload);
+      return deleteImage(runeLibraryPath, payload);
     },
   );
 
@@ -487,9 +435,10 @@ app.whenReady().then(async () => {
         await ollamaManager.downloadModel();
         
         // Start tagging queue after model is installed
-        const settings = await loadSettings();
+        const runeLibraryPath = getRuneLibraryPath();
+        const settings = await loadSettings(runeLibraryPath);
         if (settings) {
-          taggingQueue.setLibraryPath(settings.libraryPath);
+          taggingQueue.setLibraryPath(runeLibraryPath);
           taggingQueue.start();
         }
         
@@ -511,13 +460,14 @@ app.whenReady().then(async () => {
   ipcMain.handle(
     IPC_CHANNELS.retryTagging,
     async (_event, imageId: string): Promise<IpcResult<void>> => {
-      const settings = await loadSettings();
+      const runeLibraryPath = getRuneLibraryPath();
+      const settings = await loadSettings(runeLibraryPath);
       if (!settings) {
         return failure('Library settings not found.');
       }
 
       try {
-        await retryFailedTags(settings.libraryPath, imageId);
+        await retryFailedTags(runeLibraryPath, imageId);
         taggingQueue.retryImage(imageId);
         return success(undefined);
       } catch (error) {

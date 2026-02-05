@@ -17,12 +17,12 @@ export function App() {
   const {
     settings,
     libraryPath,
+    defaultLibraryPath,
     status,
     isBootstrapping,
     isImporting,
     isSaving,
     isConfigOpen,
-    configMode,
     deletingId,
     ollamaStatus,
     ollamaProgress,
@@ -114,8 +114,8 @@ export function App() {
       {isConfigOpen ? (
         <ConfigModal
           isOpen={isConfigOpen}
-          mode={configMode}
           libraryPath={libraryPath}
+          defaultPath={defaultLibraryPath}
           status={status}
           isSaving={isSaving}
           ollamaStatus={ollamaStatus}
@@ -123,6 +123,7 @@ export function App() {
           modelProgress={modelProgress}
           isDownloadingOllama={isDownloadingOllama}
           isDownloadingModel={isDownloadingModel}
+          showWelcome={!settings}
           onClose={() => setIsConfigOpen(false)}
           onChooseFolder={handleSelectLibrary}
           onSave={handleSaveSettings}

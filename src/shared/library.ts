@@ -9,7 +9,6 @@ export const IMAGE_EXTENSIONS = [
   ".tiff",
 ];
 
-export const DEFAULT_LICENSE_KEY = "0000";
 export const RUNE_PROTOCOL = "rune";
 export const RUNE_PROTOCOL_HOST = "local";
 export const SEARCH_PAGE_SIZE = 200;
@@ -18,11 +17,10 @@ export const OLLAMA_MODEL = "qwen3-vl:2b";
 
 export type AiTagStatus = 'pending' | 'generating' | 'complete' | 'failed';
 
+// Settings are stored in the database, so this type is simpler
 export type LibrarySettings = {
-  libraryPath: string;
-  licenseKey?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type LibraryImage = {

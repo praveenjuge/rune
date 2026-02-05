@@ -21,8 +21,8 @@ import type { DownloadProgress, OllamaStatus } from "@/shared/library";
 
 export function ConfigModal({
   isOpen,
-  mode,
   libraryPath,
+  defaultPath,
   status,
   isSaving,
   ollamaStatus,
@@ -30,6 +30,7 @@ export function ConfigModal({
   modelProgress,
   isDownloadingOllama,
   isDownloadingModel,
+  showWelcome,
   onClose,
   onChooseFolder,
   onSave,
@@ -37,8 +38,8 @@ export function ConfigModal({
   onDownloadModel,
 }: {
   isOpen: boolean;
-  mode: "onboarding" | "settings";
   libraryPath: string;
+  defaultPath: string;
   status: string | null;
   isSaving: boolean;
   ollamaStatus: OllamaStatus;
@@ -46,6 +47,7 @@ export function ConfigModal({
   modelProgress: DownloadProgress | null;
   isDownloadingOllama: boolean;
   isDownloadingModel: boolean;
+  showWelcome: boolean;
   onClose: () => void;
   onChooseFolder: () => void;
   onSave: () => void;
@@ -57,10 +59,15 @@ export function ConfigModal({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-md">
+        {/* Welcome alert - shown inside modal on first time */}
+        {showWelcome && (
+          <div className="rounded-md border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-700 dark:text-blue-400">
+            Welcome to Rune! Your library folder has been set to Documents/Rune. Click Save to continue.
+          </div>
+        )}
+
         <DialogHeader>
-          <h2 className="text-lg font-semibold">
-            {mode === "onboarding" ? "Set up your library" : "Settings"}
-          </h2>
+          <h2 className="text-lg font-semibold">Settings</h2>
         </DialogHeader>
 
         <div className="space-y-5 text-sm">
@@ -71,7 +78,7 @@ export function ConfigModal({
             </label>
             <div className="flex items-center gap-2">
               <input
-                value={libraryPath}
+                value={libraryPath || defaultPath}
                 readOnly
                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground"
               />
@@ -102,40 +109,38 @@ export function ConfigModal({
             />
           </div>
 
-          {/* Appearance - only in settings mode */}
-          {mode === "settings" && (
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-muted-foreground">
-                Theme
-              </label>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant={theme === "system" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setTheme("system")}
-                >
-                  <Laptop className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant={theme === "light" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setTheme("light")}
-                >
-                  <Sun className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant={theme === "dark" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setTheme("dark")}
-                >
-                  <Moon className="h-4 w-4" />
-                </Button>
-              </div>
+          {/* Appearance */}
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground">
+              Theme
+            </label>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant={theme === "system" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTheme("system")}
+              >
+                <Laptop className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                variant={theme === "light" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTheme("light")}
+              >
+                <Sun className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                variant={theme === "dark" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTheme("dark")}
+              >
+                <Moon className="h-4 w-4" />
+              </Button>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Error message */}
@@ -147,19 +152,15 @@ export function ConfigModal({
 
         {/* Actions */}
         <div className="flex justify-end gap-2 mt-6">
-          {mode === "settings" && (
-            <Button variant="ghost" onClick={onClose}>
-              Cancel
-            </Button>
-          )}
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
           <Button onClick={onSave} disabled={isSaving}>
             {isSaving ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 Saving
               </>
-            ) : mode === "onboarding" ? (
-              "Continue"
             ) : (
               "Save"
             )}
