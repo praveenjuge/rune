@@ -118,15 +118,18 @@ export function useAppState() {
     }
 
     setIsImporting(true);
-    const result = await window.rune.importImages();
-    setIsImporting(false);
+    try {
+      const result = await window.rune.importImages();
 
-    if (result.ok === false) {
-      setStatus(result.error);
-      return;
+      if (result.ok === false) {
+        setStatus(result.error);
+        return;
+      }
+
+      return result.data.length > 0;
+    } finally {
+      setIsImporting(false);
     }
-
-    return result.data.length > 0;
   };
 
   const handleDeleteImage = async (id: string) => {
