@@ -17,12 +17,6 @@ jobs:
           - os: macos-latest
             arch: arm64
             artifact_name: macos-arm64
-          - os: windows-latest
-            arch: x64
-            artifact_name: windows-x64
-          - os: ubuntu-latest
-            arch: x64
-            artifact_name: linux-x64
 
     runs-on: ${{ matrix.os }}
 
@@ -51,11 +45,6 @@ jobs:
           path: |
             out/make/**/*.zip
             out/make/**/*.dmg
-            out/make/squirrel.windows/**/*.exe
-            out/make/squirrel.windows/**/*.nupkg
-            out/make/squirrel.windows/**/RELEASES
-            out/make/**/*.deb
-            out/make/**/*.rpm
           if-no-files-found: warn
 
   release:
@@ -76,10 +65,6 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R artifacts
 
-      - name: Get version from tag
-        id: get_version
-        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
@@ -90,10 +75,5 @@ jobs:
           files: |
             artifacts/**/*.zip
             artifacts/**/*.dmg
-            artifacts/**/*.exe
-            artifacts/**/*.deb
-            artifacts/**/*.rpm
-            artifacts/**/*.nupkg
-            artifacts/**/RELEASES
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -22,11 +22,9 @@ jobs:
       - name: Check if version changed
         id: check
         run: |
-          # Get current version
           CURRENT_VERSION=$(node -p "require('./package.json').version")
           echo "Current version: $CURRENT_VERSION"
           
-          # Get previous version
           git show HEAD~1:package.json > /tmp/old-package.json 2>/dev/null || echo '{"version":"0.0.0"}' > /tmp/old-package.json
           PREVIOUS_VERSION=$(node -p "require('/tmp/old-package.json').version")
           echo "Previous version: $PREVIOUS_VERSION"
@@ -50,10 +48,6 @@ jobs:
             arch: x64
           - os: macos-latest
             arch: arm64
-          - os: windows-latest
-            arch: x64
-          - os: ubuntu-latest
-            arch: x64
 
     runs-on: ${{ matrix.os }}
 
@@ -70,57 +64,18 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build and Package (macOS)
-        if: matrix.os == 'macos-latest'
-        run: npm run make -- --arch=${{ matrix.arch }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # For code signing (optional - add these secrets for signed builds)
-          # APPLE_ID: ${{ secrets.APPLE_ID }}
-          # APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
-          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-
-      - name: Build and Package (Windows)
-        if: matrix.os == 'windows-latest'
-        run: npm run make -- --arch=${{ matrix.arch }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and Package (Linux)
-        if: matrix.os == 'ubuntu-latest'
+      - name: Build and Package
         run: npm run make -- --arch=${{ matrix.arch }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload macOS artifacts
-        if: matrix.os == 'macos-latest'
         uses: actions/upload-artifact@v4
         with:
           name: macos-${{ matrix.arch }}
           path: |
             out/make/**/*.zip
             out/make/**/*.dmg
-          if-no-files-found: warn
-
-      - name: Upload Windows artifacts
-        if: matrix.os == 'windows-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-${{ matrix.arch }}
-          path: |
-            out/make/squirrel.windows/**/*.exe
-            out/make/squirrel.windows/**/*.nupkg
-            out/make/squirrel.windows/**/RELEASES
-          if-no-files-found: warn
-
-      - name: Upload Linux artifacts
-        if: matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-${{ matrix.arch }}
-          path: |
-            out/make/**/*.deb
-            out/make/**/*.rpm
           if-no-files-found: warn
 
   release:
@@ -152,10 +107,5 @@ jobs:
           files: |
             artifacts/**/*.zip
             artifacts/**/*.dmg
-            artifacts/**/*.exe
-            artifacts/**/*.deb
-            artifacts/**/*.rpm
-            artifacts/**/*.nupkg
-            artifacts/**/RELEASES
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
