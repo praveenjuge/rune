@@ -38,13 +38,18 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Zip the .app bundle
+        run: |
+          cd out/Rune-darwin-${{ matrix.arch }}
+          zip -r -y "../../Rune-${{ matrix.arch }}.app.zip" Rune.app
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
           path: |
             out/make/**/*.zip
-            out/make/**/*.dmg
+            Rune-${{ matrix.arch }}.app.zip
           if-no-files-found: warn
 
   release:
@@ -74,6 +79,5 @@ jobs:
           generate_release_notes: true
           files: |
             artifacts/**/*.zip
-            artifacts/**/*.dmg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
