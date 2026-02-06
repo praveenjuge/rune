@@ -1,8 +1,9 @@
 {
   "name": "rune",
   "productName": "Rune",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "A local AI chat application powered by Ollama",
+  "license": "MIT",
   "main": ".vite/build/main.js",
   "scripts": {
     "start": "electron-forge start",
