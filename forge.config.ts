@@ -39,6 +39,7 @@ function copyNativeModules(buildPath: string) {
 
 const config: ForgeConfig = {
   packagerConfig: {
+    executableName: 'rune',
     asar: {
       unpack: '**/node_modules/{better-sqlite3,bindings,file-uri-to-path}/**/*',
     },

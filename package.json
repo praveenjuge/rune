@@ -1,7 +1,7 @@
 {
   "name": "rune",
   "productName": "Rune",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "A local AI chat application powered by Ollama",
   "main": ".vite/build/main.js",
   "scripts": {
