@@ -12,7 +12,7 @@ export const IMAGE_EXTENSIONS = [
 export const RUNE_PROTOCOL = "rune";
 export const RUNE_PROTOCOL_HOST = "local";
 export const SEARCH_PAGE_SIZE = 200;
-export const MIN_SQLITE_VERSION = "3.51.2";
+export const MIN_SQLITE_VERSION = "3.46.0";
 export const OLLAMA_MODEL = "qwen3-vl:2b";
 
 export type AiTagStatus = 'pending' | 'generating' | 'complete' | 'failed';

@@ -1,9 +1,10 @@
-import Database from 'better-sqlite3';
+import { DatabaseSync, StatementSync } from 'node:sqlite';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {
   MIN_SQLITE_VERSION,
   type LibraryImage,
+  type LibrarySettings,
   type SearchCursor,
   type SearchImagesInput,
   type SearchImagesResult,
@@ -12,7 +13,7 @@ import {
 
 const DB_DIRNAME = '.rune';
 const DB_FILENAME = 'library.sqlite';
-const DB_SCHEMA_VERSION = 3; // Bumped for settings table
+const DB_SCHEMA_VERSION = 3;
 const MAX_PAGE_SIZE = 500;
 
 type DbImageRow = Omit<LibraryImage, 'url'>;
@@ -47,23 +48,23 @@ type SearchFtsAfterParams = {
 };
 
 type DbStatements = {
-  insertImage: Database.Statement<InsertImageParams>;
-  insertFts: Database.Statement<{ id: string; original_name: string; ai_tags: string | null }>;
-  deleteImage: Database.Statement<IdParam>;
-  deleteFts: Database.Statement<IdParam>;
-  getImageById: Database.Statement<IdParam>;
-  selectPage: Database.Statement<SearchPageParams>;
-  selectPageAfter: Database.Statement<SearchPageAfterParams>;
-  selectFtsPage: Database.Statement<SearchFtsParams>;
-  selectFtsPageAfter: Database.Statement<SearchFtsAfterParams>;
-  updateImageTags: Database.Statement<UpdateImageTagsParams>;
-  updateFtsTags: Database.Statement<{ id: string; ai_tags: string | null }>;
-  selectPendingTags: Database.Statement<{ limit: number }>;
-  setTagStatus: Database.Statement<{ id: string; ai_tag_status: string }>;
+  insertImage: StatementSync;
+  insertFts: StatementSync;
+  deleteImage: StatementSync;
+  deleteFts: StatementSync;
+  getImageById: StatementSync;
+  selectPage: StatementSync;
+  selectPageAfter: StatementSync;
+  selectFtsPage: StatementSync;
+  selectFtsPageAfter: StatementSync;
+  updateImageTags: StatementSync;
+  updateFtsTags: StatementSync;
+  selectPendingTags: StatementSync;
+  setTagStatus: StatementSync;
 };
 
 type DbContext = {
-  db: Database.Database;
+  db: DatabaseSync;
   statements: DbStatements;
 };
 
@@ -103,7 +104,13 @@ const buildFtsQuery = (raw: string) => {
   return tokens.map((token) => `${token}*`).join(' AND ');
 };
 
-const ensureSchema = (db: Database.Database) => {
+const prepareStmt = (db: DatabaseSync, sql: string): StatementSync => {
+  const stmt = db.prepare(sql);
+  stmt.setAllowBareNamedParameters(true);
+  return stmt;
+};
+
+const ensureSchema = (db: DatabaseSync) => {
   db.exec(`
     CREATE TABLE IF NOT EXISTS images (
       id TEXT PRIMARY KEY,
@@ -127,15 +134,14 @@ const ensureSchema = (db: Database.Database) => {
     CREATE INDEX IF NOT EXISTS images_ai_tag_status_idx
       ON images(ai_tag_status);
   `);
-  db.pragma(`user_version = ${DB_SCHEMA_VERSION}`);
+  db.exec(`PRAGMA user_version = ${DB_SCHEMA_VERSION}`);
 };
 
-const migrateSchema = (db: Database.Database, fromVersion: number) => {
+const migrateSchema = (db: DatabaseSync, fromVersion: number) => {
   if (fromVersion < 2) {
     // Migration from version 1 to 2: Add AI tags columns
     console.info('[rune] Migrating database to version 2 (AI tags)...');
 
-    // Add new columns to images table
     const columns = db.prepare(`PRAGMA table_info(images)`).all() as Array<{ name: string }>;
     const columnNames = columns.map(c => c.name);
 
@@ -146,14 +152,11 @@ const migrateSchema = (db: Database.Database, fromVersion: number) => {
       db.exec(`ALTER TABLE images ADD COLUMN ai_tag_status TEXT DEFAULT 'pending'`);
     }
 
-    // Recreate FTS table to include ai_tags
-    // First, check if old FTS table exists and migrate data
     const ftsExists = db.prepare(
       `SELECT name FROM sqlite_master WHERE type='table' AND name='images_fts'`
     ).get();
 
     if (ftsExists) {
-      // Drop old FTS table and recreate with ai_tags
       db.exec(`DROP TABLE IF EXISTS images_fts`);
     }
 
@@ -162,19 +165,17 @@ const migrateSchema = (db: Database.Database, fromVersion: number) => {
         USING fts5(id UNINDEXED, original_name, ai_tags, tokenize='unicode61');
     `);
 
-    // Repopulate FTS table from images
     db.exec(`
       INSERT INTO images_fts (id, original_name, ai_tags)
       SELECT id, original_name, ai_tags FROM images
     `);
 
-    // Create index for ai_tag_status
     db.exec(`
       CREATE INDEX IF NOT EXISTS images_ai_tag_status_idx
         ON images(ai_tag_status);
     `);
 
-    db.pragma(`user_version = 2`);
+    db.exec(`PRAGMA user_version = 2`);
     console.info('[rune] Migration to version 2 complete.');
   }
 
@@ -190,24 +191,24 @@ const migrateSchema = (db: Database.Database, fromVersion: number) => {
       );
     `);
 
-    db.pragma(`user_version = 3`);
+    db.exec(`PRAGMA user_version = 3`);
     console.info('[rune] Migration to version 3 complete.');
   }
 };
 
-const prepareStatements = (db: Database.Database): DbStatements => ({
-  insertImage: db.prepare(
+const prepareStatements = (db: DatabaseSync): DbStatements => ({
+  insertImage: prepareStmt(db,
     `
     INSERT INTO images (id, original_name, stored_name, file_path, added_at, bytes, ai_tags, ai_tag_status)
     VALUES (@id, @original_name, @stored_name, @file_path, @added_at, @bytes, @ai_tags, @ai_tag_status)
   `,
   ),
-  insertFts: db.prepare(
+  insertFts: prepareStmt(db,
     `INSERT INTO images_fts (id, original_name, ai_tags) VALUES (@id, @original_name, @ai_tags)`,
   ),
-  deleteImage: db.prepare(`DELETE FROM images WHERE id = @id`),
-  deleteFts: db.prepare(`DELETE FROM images_fts WHERE id = @id`),
-  getImageById: db.prepare(
+  deleteImage: prepareStmt(db, `DELETE FROM images WHERE id = @id`),
+  deleteFts: prepareStmt(db, `DELETE FROM images_fts WHERE id = @id`),
+  getImageById: prepareStmt(db,
     `
     SELECT
       id,
@@ -222,7 +223,7 @@ const prepareStatements = (db: Database.Database): DbStatements => ({
     WHERE id = @id
   `,
   ),
-  selectPage: db.prepare(
+  selectPage: prepareStmt(db,
     `
     SELECT
       id,
@@ -238,7 +239,7 @@ const prepareStatements = (db: Database.Database): DbStatements => ({
     LIMIT @limit
   `,
   ),
-  selectPageAfter: db.prepare(
+  selectPageAfter: prepareStmt(db,
     `
     SELECT
       id,
@@ -255,7 +256,7 @@ const prepareStatements = (db: Database.Database): DbStatements => ({
     LIMIT @limit
   `,
   ),
-  selectFtsPage: db.prepare(
+  selectFtsPage: prepareStmt(db,
     `
     SELECT
       images.id,
@@ -273,7 +274,7 @@ const prepareStatements = (db: Database.Database): DbStatements => ({
     LIMIT @limit
   `,
   ),
-  selectFtsPageAfter: db.prepare(
+  selectFtsPageAfter: prepareStmt(db,
     `
     SELECT
       images.id,
@@ -292,13 +293,13 @@ const prepareStatements = (db: Database.Database): DbStatements => ({
     LIMIT @limit
   `,
   ),
-  updateImageTags: db.prepare(
+  updateImageTags: prepareStmt(db,
     `UPDATE images SET ai_tags = @ai_tags, ai_tag_status = @ai_tag_status WHERE id = @id`,
   ),
-  updateFtsTags: db.prepare(
+  updateFtsTags: prepareStmt(db,
     `UPDATE images_fts SET ai_tags = @ai_tags WHERE id = @id`,
   ),
-  selectPendingTags: db.prepare(
+  selectPendingTags: prepareStmt(db,
     `
     SELECT
       id,
@@ -315,7 +316,7 @@ const prepareStatements = (db: Database.Database): DbStatements => ({
     LIMIT @limit
   `,
   ),
-  setTagStatus: db.prepare(
+  setTagStatus: prepareStmt(db,
     `UPDATE images SET ai_tag_status = @ai_tag_status WHERE id = @id`,
   ),
 });
@@ -324,14 +325,14 @@ const openDatabase = async (libraryPath: string): Promise<DbContext> => {
   const dbDir = path.join(libraryPath, DB_DIRNAME);
   await fs.mkdir(dbDir, { recursive: true });
   const dbPath = getDbPath(libraryPath);
-  const db = new Database(dbPath, { timeout: 5000 });
+  const db = new DatabaseSync(dbPath);
 
-  db.pragma('busy_timeout = 5000');
-  db.pragma('journal_mode = WAL');
-  db.pragma('synchronous = NORMAL');
-  db.pragma('temp_store = MEMORY');
-  db.pragma('cache_size = -64000');
-  db.pragma('foreign_keys = ON');
+  db.exec('PRAGMA busy_timeout = 5000');
+  db.exec('PRAGMA journal_mode = WAL');
+  db.exec('PRAGMA synchronous = NORMAL');
+  db.exec('PRAGMA temp_store = MEMORY');
+  db.exec('PRAGMA cache_size = -64000');
+  db.exec('PRAGMA foreign_keys = ON');
 
   const versionRow = db.prepare('SELECT sqlite_version() as version').get() as {
     version: string;
@@ -351,7 +352,7 @@ const openDatabase = async (libraryPath: string): Promise<DbContext> => {
     throw new Error('SQLite FTS5 is required but not available.');
   }
 
-  const userVersion = db.pragma('user_version', { simple: true }) as number;
+  const userVersion = (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version;
   if (!userVersion) {
     ensureSchema(db);
   } else if (userVersion < DB_SCHEMA_VERSION) {
@@ -435,8 +436,9 @@ export const insertImages = async (
 ): Promise<void> => {
   if (images.length === 0) return;
   const { db, statements } = await getDb(libraryPath);
-  const insertMany = db.transaction((rows: LibraryImage[]) => {
-    for (const row of rows) {
+  db.exec('BEGIN');
+  try {
+    for (const row of images) {
       statements.insertImage.run({
         id: row.id,
         original_name: row.originalName,
@@ -453,8 +455,11 @@ export const insertImages = async (
         ai_tags: row.aiTags ?? null,
       });
     }
-  });
-  insertMany(images);
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
 };
 
 export const getImageById = async (
@@ -471,11 +476,15 @@ export const deleteImageById = async (
   id: string,
 ): Promise<void> => {
   const { db, statements } = await getDb(libraryPath);
-  const remove = db.transaction((imageId: string) => {
-    statements.deleteFts.run({ id: imageId });
-    statements.deleteImage.run({ id: imageId });
-  });
-  remove(id);
+  db.exec('BEGIN');
+  try {
+    statements.deleteFts.run({ id });
+    statements.deleteImage.run({ id });
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
 };
 
 export const closeAllDatabases = () => {
@@ -494,7 +503,8 @@ export const updateImageTags = async (
   status: AiTagStatus,
 ): Promise<void> => {
   const { db, statements } = await getDb(libraryPath);
-  const update = db.transaction(() => {
+  db.exec('BEGIN');
+  try {
     statements.updateImageTags.run({
       id,
       ai_tags: tags,
@@ -504,8 +514,11 @@ export const updateImageTags = async (
       id,
       ai_tags: tags,
     });
-  });
-  update();
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
 };
 
 export const setImageTagStatus = async (
@@ -568,18 +581,15 @@ export const saveSettings = async (
   const now = new Date().toISOString();
 
   try {
-    // Check if settings row exists
     const existing = db.prepare('SELECT id, created_at FROM settings WHERE id = 1').get() as { id: number; created_at: string } | undefined;
 
     if (existing) {
-      // Update existing settings
       db.prepare('UPDATE settings SET updated_at = ? WHERE id = 1').run(now);
       return {
         createdAt: existing.created_at,
         updatedAt: now,
       };
     } else {
-      // Insert new settings
       db.prepare('INSERT INTO settings (id, created_at, updated_at) VALUES (1, ?, ?)').run(
         now,
         now,

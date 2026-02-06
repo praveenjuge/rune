@@ -5,42 +5,11 @@ import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
 import { PublisherGithub } from '@electron-forge/publisher-github';
-import fs from 'node:fs';
-import path from 'node:path';
-
-// Copy native modules to the .vite/build directory
-function copyNativeModules(buildPath: string) {
-  const nativeModules = ['better-sqlite3'];
-
-  for (const moduleName of nativeModules) {
-    const srcDir = path.join(__dirname, 'node_modules', moduleName);
-    const destDir = path.join(buildPath, 'node_modules', moduleName);
-
-    if (fs.existsSync(srcDir)) {
-      fs.cpSync(srcDir, destDir, { recursive: true });
-      console.log(`Copied ${moduleName} to ${destDir}`);
-    }
-  }
-
-  // Also copy bindings module (dependency of better-sqlite3)
-  const bindingsModules = ['bindings', 'file-uri-to-path'];
-  for (const moduleName of bindingsModules) {
-    const srcDir = path.join(__dirname, 'node_modules', moduleName);
-    const destDir = path.join(buildPath, 'node_modules', moduleName);
-
-    if (fs.existsSync(srcDir)) {
-      fs.cpSync(srcDir, destDir, { recursive: true });
-      console.log(`Copied ${moduleName} to ${destDir}`);
-    }
-  }
-}
 
 const config: ForgeConfig = {
   packagerConfig: {
     executableName: 'rune',
-    asar: {
-      unpack: '**/node_modules/{better-sqlite3,bindings,file-uri-to-path}/**/*',
-    },
+    asar: true,
   },
   rebuildConfig: {},
   makers: [
@@ -57,18 +26,10 @@ const config: ForgeConfig = {
       draft: false,
     }),
   ],
-  hooks: {
-    packageAfterCopy: async (_config, buildPath) => {
-      copyNativeModules(buildPath);
-    },
-  },
   plugins: [
     new VitePlugin({
-      // `build` can specify multiple entry builds, which can be Main process, Preload scripts, Worker process, etc.
-      // If you are familiar with Vite configuration, it will look really familiar.
       build: [
         {
-          // `entry` is just an alias for `build.lib.entry` in the corresponding file of `config`.
           entry: 'src/main.ts',
           config: 'vite.main.config.ts',
           target: 'main',
@@ -86,8 +47,6 @@ const config: ForgeConfig = {
         },
       ],
     }),
-    // Fuses are used to enable/disable various Electron functionality
-    // at package time, before code signing the application
     new FusesPlugin({
       version: FuseVersion.V1,
       [FuseV1Options.RunAsNode]: false,

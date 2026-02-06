@@ -1,7 +1,7 @@
 {
   "name": "rune",
   "productName": "Rune",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "A local AI chat application powered by Ollama",
   "license": "MIT",
   "main": ".vite/build/main.js",
@@ -11,7 +11,6 @@
     "make": "electron-forge make",
     "publish": "electron-forge publish",
     "lint": "eslint --ext .ts,.tsx .",
-    "postinstall": "electron-rebuild -f -w better-sqlite3",
     "test:db": "node scripts/run_db_tests.js"
   },
   "devDependencies": {
@@ -26,7 +25,6 @@
     "@electron-forge/plugin-vite": "^7.11.1",
     "@electron-forge/publisher-github": "^7.11.1",
     "@electron/fuses": "^1.8.0",
-    "@electron/rebuild": "^3.7.1",
     "@tailwindcss/vite": "^4.1.18",
     "@types/electron-squirrel-startup": "^1.0.2",
     "@types/react": "^19.2.10",
@@ -45,7 +43,6 @@
   "dependencies": {
     "@radix-ui/react-context-menu": "^2.2.16",
     "@radix-ui/react-dialog": "^1.1.15",
-    "better-sqlite3": "^12.4.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "electron-squirrel-startup": "^1.0.1",
