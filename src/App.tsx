@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { App as AntdApp, Layout, Space } from "antd";
+import { App as AntdApp, Flex, Layout, theme } from "antd";
 import { ConfigModal } from "./components/app/config-modal";
 import {
   EmptySearchState,
@@ -17,6 +17,7 @@ function AppContent() {
   const [search, setSearch] = useState("");
   const searchInputRef = useRef<any>(null);
   const { message } = AntdApp.useApp();
+  const { token } = theme.useToken();
 
   const {
     settings,
@@ -85,7 +86,7 @@ function AppContent() {
   };
 
   return (
-    <Layout className="app-layout">
+    <>
       <Header
         search={search}
         onSearch={setSearch}
@@ -96,33 +97,31 @@ function AppContent() {
         searchInputRef={searchInputRef}
       />
 
-      <Content className="app-content">
-        <div className="app-container">
-          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-            {isBootstrapping || (isSearching && images.length === 0) ? (
-              <LoadingState />
-            ) : images.length === 0 ? (
-              search.trim() ? (
-                <EmptySearchState query={search} />
-              ) : (
-                <EmptyState />
-              )
-            ) : null}
+      <Content style={{ overflowY: "auto", paddingBottom: token.paddingLG }}>
+        <Flex vertical>
+          {isBootstrapping || (isSearching && images.length === 0) ? (
+            <LoadingState />
+          ) : images.length === 0 ? (
+            search.trim() ? (
+              <EmptySearchState query={search} />
+            ) : (
+              <EmptyState />
+            )
+          ) : null}
 
-            {!isBootstrapping && images.length > 0 ? (
-              <>
-                <ImageGrid
-                  images={images}
-                  deletingId={deletingId}
-                  onDelete={handleDeleteImageWrapper}
-                  onRetryTagging={handleRetryTagging}
-                />
-                <div ref={sentinelRef} className="sentinel" />
-                {isLoadingMore ? <LoadingMore /> : null}
-              </>
-            ) : null}
-          </Space>
-        </div>
+          {!isBootstrapping && images.length > 0 ? (
+            <>
+              <ImageGrid
+                images={images}
+                deletingId={deletingId}
+                onDelete={handleDeleteImageWrapper}
+                onRetryTagging={handleRetryTagging}
+              />
+              <div ref={sentinelRef} style={{ height: token.paddingLG }} />
+              {isLoadingMore ? <LoadingMore /> : null}
+            </>
+          ) : null}
+        </Flex>
       </Content>
 
       {isConfigOpen ? (
@@ -153,7 +152,7 @@ function AppContent() {
           onInstallUpdate={handleInstallUpdate}
         />
       ) : null}
-    </Layout>
+    </>
   );
 }
 

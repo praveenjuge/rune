@@ -26,7 +26,7 @@ export function Header({
   };
 
   return (
-    <Layout.Header className="header-border" onClick={handleHeaderClick}>
+    <Layout.Header onClick={handleHeaderClick}>
       <Space.Compact block>
         <Input.Search
           ref={searchInputRef}

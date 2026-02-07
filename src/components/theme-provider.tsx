@@ -29,33 +29,10 @@ const initialState: ThemeProviderState = {
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
 
-const SHARED_COMPONENTS = {
-  Layout: {
-    headerBg: "transparent",
-    headerHeight: "auto" as any,
-    headerPadding: "8px 16px",
-  },
-};
-
-const LIGHT_THEME = {
-  cssVar: true,
-  token: {
-    borderRadius: 6,
-  },
-  components: {
-    ...SHARED_COMPONENTS,
-  },
-};
+const LIGHT_THEME = {};
 
 const DARK_THEME = {
-  cssVar: true,
   algorithm: theme.darkAlgorithm,
-  token: {
-    borderRadius: 6,
-  },
-  components: {
-    ...SHARED_COMPONENTS,
-  },
 };
 
 export function ThemeProvider({

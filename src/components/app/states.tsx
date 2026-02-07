@@ -1,28 +1,18 @@
-import { Result, Skeleton, Spin } from "antd";
+import { Empty, Skeleton, Spin } from "antd";
 import { FileImageOutlined, SearchOutlined } from "@ant-design/icons";
 
 export function LoadingState() {
-  return <Result icon={<Skeleton.Image active />} subTitle="Loading images..." />;
+  return <Empty description="Loading images..." image={<Skeleton.Image active />} />;
 }
 
 export function EmptyState() {
-  return (
-    <Result
-      icon={<FileImageOutlined />}
-      subTitle="No images yet"
-    />
-  );
+  return <Empty description="No images yet" image={<FileImageOutlined style={{ fontSize: 48 }} />} />;
 }
 
 export function EmptySearchState({ query }: { query: string }) {
-  return (
-    <Result
-      icon={<SearchOutlined />}
-      subTitle={`No results for "${query.trim()}"`}
-    />
-  );
+  return <Empty description={`No results for "${query.trim()}"`} image={<SearchOutlined style={{ fontSize: 48 }} />} />;
 }
 
 export function LoadingMore() {
-  return <Result icon={<Spin size="small" />} />;
+  return <Empty description={null} image={<Spin size="small" />} />;
 }
