@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Alert } from "antd";
+import { App as AntdApp, Alert } from "antd";
 import { ConfigModal } from "./components/app/config-modal";
 import {
   EmptySearchState,
@@ -76,7 +76,8 @@ export function App() {
   };
 
   return (
-    <div style={{ display: "flex", height: "100vh", flexDirection: "column", overflow: "hidden", backgroundColor: "var(--rune-background)", color: "var(--rune-foreground)" }}>
+    <AntdApp>
+      <div style={{ display: "flex", height: "100vh", flexDirection: "column", overflow: "hidden", backgroundColor: "var(--rune-background)", color: "var(--rune-foreground)" }}>
       <Header
         search={search}
         onSearch={setSearch}
@@ -146,6 +147,7 @@ export function App() {
           onInstallUpdate={handleInstallUpdate}
         />
       ) : null}
-    </div>
+      </div>
+    </AntdApp>
   );
 }

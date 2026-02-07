@@ -1,32 +1,30 @@
-/* Rune App Styles - Native CSS with Ant Design Theme Tokens */
+/* Rune App Styles */
 
 :root {
   --rune-background: #ffffff;
-  --rune-foreground: #000000e6;
+  --rune-foreground: rgba(0, 0, 0, 0.88);
   --rune-card: #ffffff;
-  --rune-card-foreground: #000000e6;
-  --rune-muted: #0000000f;
-  --rune-muted-foreground: #000000a6;
+  --rune-card-foreground: rgba(0, 0, 0, 0.88);
+  --rune-muted: rgba(0, 0, 0, 0.06);
+  --rune-muted-foreground: rgba(0, 0, 0, 0.45);
   --rune-border: #d9d9d9;
   --rune-input: #d9d9d9;
   --rune-destructive: #ff4d4f;
   --rune-destructive-foreground: #ffffff;
   --rune-radius: 6px;
-  --rune-green: #52c41a;
 }
 
 .dark {
   --rune-background: #141414;
-  --rune-foreground: #ffffffd9;
+  --rune-foreground: rgba(255, 255, 255, 0.85);
   --rune-card: #1f1f1f;
-  --rune-card-foreground: #ffffffd9;
-  --rune-muted: #ffffff0f;
-  --rune-muted-foreground: #ffffff73;
+  --rune-card-foreground: rgba(255, 255, 255, 0.85);
+  --rune-muted: rgba(255, 255, 255, 0.06);
+  --rune-muted-foreground: rgba(255, 255, 255, 0.45);
   --rune-border: #424242;
   --rune-input: #424242;
   --rune-destructive: #ff4d4f;
   --rune-destructive-foreground: #ffffff;
-  --rune-green: #52c41a;
 }
 
 * {
@@ -237,7 +235,7 @@ body {
 }
 
 .border-blue-500\/30 {
-  border-color: rgba(22, 119, 255, 0.3);
+  border-color: color-mix(in srgb, var(--rune-destructive) 30%, transparent);
 }
 
 .border-destructive\/30 {
@@ -265,7 +263,7 @@ body {
 }
 
 .bg-blue-500\/10 {
-  background-color: rgba(22, 119, 255, 0.1);
+  background-color: color-mix(in srgb, var(--rune-destructive) 10%, transparent);
 }
 
 .bg-muted\/10 {
@@ -305,15 +303,15 @@ body {
 }
 
 .text-blue-700 {
-  color: #1677ff;
+  color: var(--rune-destructive);
 }
 
 .text-green-500 {
-  color: var(--rune-green);
+  color: var(--rune-destructive);
 }
 
 .dark .text-blue-400 {
-  color: #4096ff;
+  color: var(--rune-destructive);
 }
 
 .text-xs {
