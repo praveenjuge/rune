@@ -9,7 +9,7 @@ import {
   Tag,
   Spin,
 } from "antd";
-import { WarningOutlined, ReloadOutlined } from "@ant-design/icons";
+import { WarningOutlined, ReloadOutlined, SyncOutlined } from "@ant-design/icons";
 import type { MenuProps } from "antd";
 import type { AiTagStatus, LibraryImage } from "@/shared/library";
 
@@ -40,6 +40,16 @@ export function ImageGrid({
   };
 
   const getContextMenuItems = (image: LibraryImage): MenuProps["items"] => [
+    {
+      key: "regenerate",
+      label: (
+        <Space size="small">
+          <SyncOutlined />
+          Regenerate AI Tags
+        </Space>
+      ),
+      onClick: () => onRetryTagging(image.id),
+    },
     ...(image.aiTagStatus === "failed"
       ? [
           {
@@ -52,9 +62,9 @@ export function ImageGrid({
             ),
             onClick: () => onRetryTagging(image.id),
           },
-          { type: "divider" as const },
         ]
       : []),
+    { type: "divider" as const },
     {
       key: "delete",
       label: deletingId === image.id ? "Deleting…" : "Delete",
