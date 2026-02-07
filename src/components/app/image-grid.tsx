@@ -1,5 +1,15 @@
-import { App, Card, Image, Masonry, Dropdown, Space, Typography, Tag, Spin } from "antd";
-import { DeleteOutlined, WarningOutlined, ReloadOutlined } from "@ant-design/icons";
+import {
+  App,
+  Card,
+  Image,
+  Masonry,
+  Dropdown,
+  Space,
+  Typography,
+  Tag,
+  Spin,
+} from "antd";
+import { WarningOutlined, ReloadOutlined } from "@ant-design/icons";
 import type { MenuProps } from "antd";
 import type { AiTagStatus, LibraryImage } from "@/shared/library";
 
@@ -54,20 +64,6 @@ export function ImageGrid({
     },
   ];
 
-  const getCardActions = (image: LibraryImage) => {
-    const actions: React.ReactNode[] = [];
-    if (image.aiTagStatus === "failed") {
-      actions.push(<ReloadOutlined key="retry" onClick={() => onRetryTagging(image.id)} />);
-    }
-    actions.push(
-      <DeleteOutlined
-        key="delete"
-        onClick={() => handleDelete(image)}
-      />
-    );
-    return actions;
-  };
-
   return (
     <PreviewGroup>
       <Masonry
@@ -82,7 +78,10 @@ export function ImageGrid({
         gutter={4}
         items={images}
         itemRender={(image) => (
-          <Dropdown menu={{ items: getContextMenuItems(image) }} trigger={["contextMenu"]}>
+          <Dropdown
+            menu={{ items: getContextMenuItems(image) }}
+            trigger={["contextMenu"]}
+          >
             <Card
               size="small"
               hoverable
@@ -93,12 +92,8 @@ export function ImageGrid({
                   preview={{ mask: "Click to preview" }}
                 />
               }
-              actions={getCardActions(image)}
             >
-              <ImageCaption
-                status={image.aiTagStatus}
-                tags={image.aiTags}
-              />
+              <ImageCaption status={image.aiTagStatus} tags={image.aiTags} />
             </Card>
           </Dropdown>
         )}
@@ -128,7 +123,9 @@ function ImageCaption({ status, tags }: ImageCaptionProps) {
 
   if (status === "failed") {
     return (
-      <Tag color="error" icon={<WarningOutlined />}>Failed</Tag>
+      <Tag color="error" icon={<WarningOutlined />}>
+        Failed
+      </Tag>
     );
   }
 
