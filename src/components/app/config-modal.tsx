@@ -1,4 +1,19 @@
-import { Button, Badge, Progress, Modal, Alert } from "antd";
+import {
+  Button,
+  Badge,
+  Card,
+  Flex,
+  Form,
+  Input,
+  Modal,
+  Progress,
+  Segmented,
+  Steps,
+  Tooltip,
+  Typography,
+  Alert,
+  theme,
+} from "antd";
 import {
   CheckCircleOutlined,
   DownloadOutlined,
@@ -11,8 +26,9 @@ import {
   DeleteOutlined,
 } from "@ant-design/icons";
 import { useTheme } from "@/components/theme-provider";
-import { OLLAMA_MODEL } from "@/shared/library";
 import type { DownloadProgress, OllamaStatus, UpdateStatus } from "@/shared/library";
+
+const { Text } = Typography;
 
 export function ConfigModal({
   isOpen,
@@ -65,50 +81,57 @@ export function ConfigModal({
   onCheckForUpdates: () => void;
   onInstallUpdate: () => void;
 }) {
-  const { theme, setTheme } = useTheme();
+  const { theme: currentTheme, setTheme } = useTheme();
+  const { token } = theme.useToken();
+
+  const setupStep = !ollamaStatus.binaryInstalled ? 0 : !ollamaStatus.modelInstalled ? 1 : 2;
 
   return (
     <Modal
       open={isOpen}
       onCancel={onClose}
       title="Settings"
-      footer={null}
+      onOk={onSave}
+      okText="Save"
+      confirmLoading={isSaving}
       width={480}
     >
-      {/* Welcome alert - shown inside modal on first time */}
       {showWelcome && (
-        <Alert
-          message="Welcome to Rune! Your library folder has been set to Documents/Rune. Click Save to continue."
-          type="info"
-          style={{ marginBottom: 16 }}
-        />
+        <>
+          <Alert
+            banner
+            message="Welcome to Rune! Your library folder has been set to Documents/Rune. Click Save to continue."
+            type="info"
+            style={{ marginBottom: token.margin }}
+          />
+          <Steps
+            size="small"
+            current={setupStep}
+            items={[
+              { title: "Install Ollama" },
+              { title: "Download Model" },
+              { title: "Ready" },
+            ]}
+            style={{ marginBottom: token.marginLG }}
+          />
+        </>
       )}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 20, fontSize: 14 }}>
-        {/* Library folder */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <label style={{ fontSize: 12, fontWeight: 500, color: "var(--rune-muted-foreground)" }}>
-            Library folder
-          </label>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <input
+      <Form layout="vertical">
+        <Form.Item label="Library folder">
+          <Flex gap={token.paddingXS}>
+            <Input
               value={libraryPath || defaultPath}
               readOnly
-              style={{ display: "flex", height: 36, width: "100%", borderRadius: 6, border: "1px solid var(--rune-input)", backgroundColor: "var(--rune-background)", padding: "6px 12px", fontSize: 14, color: "var(--rune-muted-foreground)" }}
+              style={{ flex: 1 }}
             />
-            <Button
-              onClick={onChooseFolder}
-              aria-label="Choose folder"
-              icon={<FolderOpenOutlined />}
-            />
-          </div>
-        </div>
+            <Tooltip title="Choose folder">
+              <Button onClick={onChooseFolder} icon={<FolderOpenOutlined />} />
+            </Tooltip>
+          </Flex>
+        </Form.Item>
 
-        {/* Ollama Binary */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <label style={{ fontSize: 12, fontWeight: 500, color: "var(--rune-muted-foreground)" }}>
-            Ollama Binary
-          </label>
+        <Form.Item label="Ollama Binary">
           <OllamaBinarySetup
             status={ollamaStatus}
             ollamaProgress={ollamaProgress}
@@ -118,13 +141,9 @@ export function ConfigModal({
             onRestartOllama={onRestartOllama}
             onDeleteOllamaBinary={onDeleteOllamaBinary}
           />
-        </div>
+        </Form.Item>
 
-        {/* AI Model */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <label style={{ fontSize: 12, fontWeight: 500, color: "var(--rune-muted-foreground)" }}>
-            AI Model
-          </label>
+        <Form.Item label="AI Model">
           <OllamaModelSetup
             status={ollamaStatus}
             modelProgress={modelProgress}
@@ -132,65 +151,43 @@ export function ConfigModal({
             onDownloadModel={onDownloadModel}
             onDeleteOllamaModel={onDeleteOllamaModel}
           />
-        </div>
+        </Form.Item>
 
-        {/* Appearance */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <label style={{ fontSize: 12, fontWeight: 500, color: "var(--rune-muted-foreground)" }}>
-            Theme
-          </label>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Button
-              type={theme === "system" ? "primary" : "default"}
-              size="small"
-              onClick={() => setTheme("system")}
-              icon={<LaptopOutlined />}
-            />
-            <Button
-              type={theme === "light" ? "primary" : "default"}
-              size="small"
-              onClick={() => setTheme("light")}
-              icon={<SunOutlined />}
-            />
-            <Button
-              type={theme === "dark" ? "primary" : "default"}
-              size="small"
-              onClick={() => setTheme("dark")}
-              icon={<MoonOutlined />}
-            />
-          </div>
-        </div>
+        <Form.Item label="Theme">
+          <Segmented
+            value={currentTheme}
+            onChange={(value) => setTheme(value as "system" | "light" | "dark")}
+            options={[
+              { label: "System", value: "system", icon: <LaptopOutlined /> },
+              { label: "Light", value: "light", icon: <SunOutlined /> },
+              { label: "Dark", value: "dark", icon: <MoonOutlined /> },
+            ]}
+          />
+        </Form.Item>
 
-        {/* App Updates */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <label style={{ fontSize: 12, fontWeight: 500, color: "var(--rune-muted-foreground)" }}>
-            App Updates
-          </label>
+        <Form.Item label="App Updates" style={{ marginBottom: 0 }}>
           <AppUpdateSection
             updateStatus={updateStatus}
             currentVersion={currentVersion}
             onCheckForUpdates={onCheckForUpdates}
             onInstallUpdate={onInstallUpdate}
           />
-        </div>
-      </div>
+        </Form.Item>
+      </Form>
 
-      {/* Error message */}
       {status && (
-        <Alert message={status} type="error" style={{ marginTop: 16 }} />
+        <Alert message={status} type="error" style={{ marginTop: token.margin }} />
       )}
-
-      {/* Actions */}
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 24 }}>
-        <Button onClick={onClose}>
-          Cancel
-        </Button>
-        <Button type="primary" onClick={onSave} loading={isSaving}>
-          Save
-        </Button>
-      </div>
     </Modal>
   );
+}
+
+function formatBytes(bytes: number) {
+  if (bytes === 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
 function OllamaBinarySetup({
@@ -210,67 +207,64 @@ function OllamaBinarySetup({
   onRestartOllama: () => void;
   onDeleteOllamaBinary: () => void;
 }) {
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return "0 B";
-    const k = 1024;
-    const sizes = ["B", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
-  };
+  const { token } = theme.useToken();
 
   if (isDownloadingOllama && ollamaProgress) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 8, borderRadius: 6, border: "1px solid var(--rune-border)", backgroundColor: "color-mix(in srgb, var(--rune-muted) 100%, transparent)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
-          <LoadingOutlined spin style={{ color: "var(--rune-muted-foreground)" }} />
-          <span style={{ fontSize: 12, color: "var(--rune-muted-foreground)" }}>
+      <Card size="small">
+        <Flex align="center" gap={token.paddingXS}>
+          <LoadingOutlined spin />
+          <Text type="secondary" style={{ fontSize: token.fontSizeSM, whiteSpace: "nowrap" }}>
             {formatBytes(ollamaProgress.downloaded)} / {formatBytes(ollamaProgress.total)}
-          </span>
+          </Text>
           <Progress percent={ollamaProgress.percent} size="small" style={{ flex: 1 }} />
-        </div>
-      </div>
+        </Flex>
+      </Card>
     );
   }
 
   if (!status.binaryInstalled) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 8, borderRadius: 6, border: "1px dashed var(--rune-border)", backgroundColor: "color-mix(in srgb, var(--rune-muted) 100%, transparent)" }}>
-        <span style={{ fontSize: 14, color: "var(--rune-muted-foreground)" }}>Not installed</span>
-        <Button onClick={onDownloadOllama} size="small" icon={<DownloadOutlined />}>
-          Download
-        </Button>
-      </div>
+      <Card size="small" styles={{ body: { borderStyle: "dashed" } }}>
+        <Flex align="center" justify="space-between">
+          <Text type="secondary">Not installed</Text>
+          <Button onClick={onDownloadOllama} size="small" icon={<DownloadOutlined />}>
+            Download
+          </Button>
+        </Flex>
+      </Card>
     );
   }
 
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 8, borderRadius: 6, border: "1px solid var(--rune-border)", backgroundColor: "color-mix(in srgb, var(--rune-muted) 100%, transparent)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <CheckCircleOutlined style={{ color: "var(--rune-green)" }} />
-        {status.serverRunning && (
-          <Badge
-            status="processing"
-            text="Running"
-          />
-        )}
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-        <Button
-          type="text"
-          size="small"
-          onClick={onRestartOllama}
-          disabled={isRestartingOllama}
-          icon={<ReloadOutlined spin={isRestartingOllama} />}
-        />
-        <Button
-          type="text"
-          size="small"
-          onClick={onDeleteOllamaBinary}
-          danger
-          icon={<DeleteOutlined />}
-        />
-      </div>
-    </div>
+    <Card size="small">
+      <Flex align="center" justify="space-between">
+        <Flex align="center" gap={token.paddingXS}>
+          <CheckCircleOutlined style={{ color: token.colorSuccess }} />
+          {status.serverRunning && <Badge status="processing" text="Running" />}
+        </Flex>
+        <Flex align="center" gap={2}>
+          <Tooltip title="Restart Ollama">
+            <Button
+              type="text"
+              size="small"
+              onClick={onRestartOllama}
+              disabled={isRestartingOllama}
+              icon={<ReloadOutlined spin={isRestartingOllama} />}
+            />
+          </Tooltip>
+          <Tooltip title="Delete Ollama">
+            <Button
+              type="text"
+              size="small"
+              onClick={onDeleteOllamaBinary}
+              danger
+              icon={<DeleteOutlined />}
+            />
+          </Tooltip>
+        </Flex>
+      </Flex>
+    </Card>
   );
 }
 
@@ -287,66 +281,61 @@ function OllamaModelSetup({
   onDownloadModel: () => void;
   onDeleteOllamaModel: () => void;
 }) {
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return "0 B";
-    const k = 1024;
-    const sizes = ["B", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
-  };
+  const { token } = theme.useToken();
 
   if (!status.binaryInstalled) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 8, borderRadius: 6, border: "1px dashed var(--rune-border)", backgroundColor: "color-mix(in srgb, var(--rune-muted) 100%, transparent)", opacity: 0.6 }}>
-        <span style={{ fontSize: 14, color: "var(--rune-muted-foreground)" }}>Install Ollama first</span>
-      </div>
+      <Card size="small" style={{ opacity: 0.6 }}>
+        <Text type="secondary">Install Ollama first</Text>
+      </Card>
     );
   }
 
   if (isDownloadingModel && modelProgress) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 8, borderRadius: 6, border: "1px solid var(--rune-border)", backgroundColor: "color-mix(in srgb, var(--rune-muted) 100%, transparent)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
-          <LoadingOutlined spin style={{ color: "var(--rune-muted-foreground)" }} />
-          <span style={{ fontSize: 12, color: "var(--rune-muted-foreground)" }}>
+      <Card size="small">
+        <Flex align="center" gap={token.paddingXS}>
+          <LoadingOutlined spin />
+          <Text type="secondary" style={{ fontSize: token.fontSizeSM, whiteSpace: "nowrap" }}>
             {formatBytes(modelProgress.downloaded)} / {formatBytes(modelProgress.total)}
-          </span>
+          </Text>
           <Progress percent={modelProgress.percent} size="small" style={{ flex: 1 }} />
-        </div>
-      </div>
+        </Flex>
+      </Card>
     );
   }
 
   if (!status.modelInstalled) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 8, borderRadius: 6, border: "1px solid var(--rune-border)", backgroundColor: "color-mix(in srgb, var(--rune-muted) 100%, transparent)" }}>
-        <span style={{ fontSize: 14, color: "var(--rune-muted-foreground)" }}>Not installed</span>
-        <Button onClick={onDownloadModel} size="small" icon={<DownloadOutlined />}>
-          Download
-        </Button>
-      </div>
+      <Card size="small">
+        <Flex align="center" justify="space-between">
+          <Text type="secondary">Not installed</Text>
+          <Button onClick={onDownloadModel} size="small" icon={<DownloadOutlined />}>
+            Download
+          </Button>
+        </Flex>
+      </Card>
     );
   }
 
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 8, borderRadius: 6, border: "1px solid var(--rune-border)", backgroundColor: "color-mix(in srgb, var(--rune-muted) 100%, transparent)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <CheckCircleOutlined style={{ color: "var(--rune-green)" }} />
-        {status.serverRunning && (
-          <Badge
-            status="success"
-            text="Ready"
+    <Card size="small">
+      <Flex align="center" justify="space-between">
+        <Flex align="center" gap={token.paddingXS}>
+          <CheckCircleOutlined style={{ color: token.colorSuccess }} />
+          {status.serverRunning && <Badge status="success" text="Ready" />}
+        </Flex>
+        <Tooltip title="Delete model">
+          <Button
+            type="text"
+            size="small"
+            onClick={onDeleteOllamaModel}
+            danger
+            icon={<DeleteOutlined />}
           />
-        )}
-      </div>
-      <Button
-        type="text"
-        size="small"
-        onClick={onDeleteOllamaModel}
-        danger
-        icon={<DeleteOutlined />}
-      />
-    </div>
+        </Tooltip>
+      </Flex>
+    </Card>
   );
 }
 
@@ -361,6 +350,7 @@ function AppUpdateSection({
   onCheckForUpdates: () => void;
   onInstallUpdate: () => void;
 }) {
+  const { token } = theme.useToken();
   const isChecking = updateStatus.state === "checking";
   const isDownloading = updateStatus.state === "downloading";
   const isDownloaded = updateStatus.state === "downloaded";
@@ -369,78 +359,54 @@ function AppUpdateSection({
   const isNotAvailable = updateStatus.state === "not-available";
 
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 8, borderRadius: 6, border: "1px solid var(--rune-border)", backgroundColor: "color-mix(in srgb, var(--rune-muted) 100%, transparent)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: 14, color: "var(--rune-muted-foreground)" }}>
-          v{currentVersion || "..."}
-        </span>
+    <Card size="small">
+      <Flex align="center" justify="space-between">
+        <Flex align="center" gap={token.paddingXS}>
+          <Text type="secondary">v{currentVersion || "..."}</Text>
 
-        {isDownloaded && (
-          <Badge status="success" text="Update Ready" />
-        )}
+          {isDownloaded && <Badge status="success" text="Update Ready" />}
+          {isAvailable && <Badge status="processing" text="Update Available" />}
+          {isNotAvailable && <Badge status="default" text="Up to date" />}
+          {hasError && (
+            <Tooltip title={updateStatus.error}>
+              <Text type="danger" style={{ fontSize: token.fontSizeSM }}>Update check failed</Text>
+            </Tooltip>
+          )}
+        </Flex>
 
-        {isAvailable && (
-          <Badge status="processing" text="Update Available" />
-        )}
+        <Flex align="center" gap={4}>
+          {(isChecking || isDownloading) && (
+            <Flex align="center" gap={token.paddingXS}>
+              <LoadingOutlined spin />
+              <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+                {isDownloading ? "Downloading..." : "Checking..."}
+              </Text>
+            </Flex>
+          )}
 
-        {isNotAvailable && (
-          <Badge status="default" text="Up to date" />
-        )}
+          {updateStatus.state === "idle" && (
+            <Button size="small" onClick={onCheckForUpdates} icon={<ReloadOutlined />}>
+              Check
+            </Button>
+          )}
 
-        {hasError && (
-          <span style={{ fontSize: 12, color: "var(--rune-destructive)" }} title={updateStatus.error}>
-            Update check failed
-          </span>
-        )}
-      </div>
+          {isNotAvailable && (
+            <Tooltip title="Check again">
+              <Button type="text" size="small" onClick={onCheckForUpdates} icon={<ReloadOutlined />} />
+            </Tooltip>
+          )}
 
-      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-        {(isChecking || isDownloading) && (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--rune-muted-foreground)" }}>
-            <LoadingOutlined spin />
-            <span>{isDownloading ? "Downloading..." : "Checking..."}</span>
-          </div>
-        )}
+          {hasError && (
+            <Button size="small" onClick={onCheckForUpdates}>Retry</Button>
+          )}
 
-        {updateStatus.state === "idle" && (
-          <Button
-            size="small"
-            onClick={onCheckForUpdates}
-            icon={<ReloadOutlined />}
-          >
-            Check
-          </Button>
-        )}
-
-        {isNotAvailable && (
-          <Button
-            type="text"
-            size="small"
-            onClick={onCheckForUpdates}
-            icon={<ReloadOutlined />}
-          />
-        )}
-
-        {hasError && (
-          <Button
-            size="small"
-            onClick={onCheckForUpdates}
-          >
-            Retry
-          </Button>
-        )}
-
-        {isDownloaded && (
-          <Button
-            type="primary"
-            size="small"
-            onClick={onInstallUpdate}
-            icon={<ReloadOutlined />}
-          >
-            Restart & Update
-          </Button>
-        )}
-      </div>
-    </div>
+          {isDownloaded && (
+            <Button type="primary" size="small" onClick={onInstallUpdate} icon={<ReloadOutlined />}>
+              Restart & Update
+            </Button>
+          )}
+        </Flex>
+      </Flex>
+    </Card>
   );
 }

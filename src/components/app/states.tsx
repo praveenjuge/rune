@@ -1,36 +1,40 @@
-import { Spin } from "antd";
+import { Empty, Flex, Spin, Typography } from "antd";
 import { FileImageOutlined, SearchOutlined } from "@ant-design/icons";
 
 export function LoadingState() {
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 0" }}>
+    <Flex align="center" justify="center" style={{ padding: "80px 0" }}>
       <Spin />
-    </div>
+    </Flex>
   );
 }
 
 export function EmptyState() {
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: "80px 0", textAlign: "center" }}>
-      <FileImageOutlined style={{ fontSize: 48, color: "color-mix(in srgb, var(--rune-muted-foreground) 50%, transparent)" }} />
-      <p style={{ fontSize: 14, color: "var(--rune-muted-foreground)" }}>No images yet</p>
-    </div>
+    <Flex align="center" justify="center" style={{ padding: "80px 0" }}>
+      <Empty
+        image={<FileImageOutlined style={{ fontSize: 48 }} />}
+        description={<Typography.Text type="secondary">No images yet</Typography.Text>}
+      />
+    </Flex>
   );
 }
 
 export function EmptySearchState({ query }: { query: string }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: "80px 0", textAlign: "center" }}>
-      <SearchOutlined style={{ fontSize: 48, color: "color-mix(in srgb, var(--rune-muted-foreground) 50%, transparent)" }} />
-      <p style={{ fontSize: 14, color: "var(--rune-muted-foreground)" }}>No results for "{query.trim()}"</p>
-    </div>
+    <Flex align="center" justify="center" style={{ padding: "80px 0" }}>
+      <Empty
+        image={<SearchOutlined style={{ fontSize: 48 }} />}
+        description={<Typography.Text type="secondary">No results for "{query.trim()}"</Typography.Text>}
+      />
+    </Flex>
   );
 }
 
 export function LoadingMore() {
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "16px 0" }}>
+    <Flex align="center" justify="center" style={{ padding: "16px 0" }}>
       <Spin size="small" />
-    </div>
+    </Flex>
   );
 }

@@ -17,11 +17,13 @@ type ThemeProviderProps = {
 
 type ThemeProviderState = {
   theme: Theme;
+  resolvedDark: boolean;
   setTheme: (theme: Theme) => void;
 };
 
 const initialState: ThemeProviderState = {
   theme: "system",
+  resolvedDark: false,
   setTheme: () => null,
 };
 
@@ -29,9 +31,6 @@ const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
 
 const LIGHT_THEME = {
   token: {
-    colorBgBase: "#ffffff",
-    colorText: "rgba(0, 0, 0, 0.9)",
-    colorBorder: "#d9d9d9",
     borderRadius: 6,
   },
 };
@@ -39,9 +38,6 @@ const LIGHT_THEME = {
 const DARK_THEME = {
   algorithm: theme.darkAlgorithm,
   token: {
-    colorBgBase: "#141414",
-    colorText: "rgba(255, 255, 255, 0.85)",
-    colorBorder: "#424242",
     borderRadius: 6,
   },
 };
@@ -52,37 +48,33 @@ export function ThemeProvider({
   storageKey = "vite-ui-theme",
   ...props
 }: ThemeProviderProps) {
-  const [theme, setThemeState] = useState<Theme>(
+  const [currentTheme, setThemeState] = useState<Theme>(
     () => (localStorage.getItem(storageKey) as Theme) || defaultTheme,
   );
   const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
-    const root = window.document.documentElement;
     const media = window.matchMedia("(prefers-color-scheme: dark)");
 
     const applyTheme = () => {
-      root.classList.remove("light", "dark");
-
       const shouldBeDark =
-        theme === "system" ? media.matches : theme === "dark";
-
-      root.classList.add(shouldBeDark ? "dark" : "light");
+        currentTheme === "system" ? media.matches : currentTheme === "dark";
       setIsDark(shouldBeDark);
     };
 
     applyTheme();
 
-    if (theme !== "system") {
+    if (currentTheme !== "system") {
       return;
     }
 
     media.addEventListener("change", applyTheme);
     return () => media.removeEventListener("change", applyTheme);
-  }, [theme]);
+  }, [currentTheme]);
 
   const value = {
-    theme,
+    theme: currentTheme,
+    resolvedDark: isDark,
     setTheme: (nextTheme: Theme) => {
       localStorage.setItem(storageKey, nextTheme);
       setThemeState(nextTheme);

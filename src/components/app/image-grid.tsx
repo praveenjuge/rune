@@ -1,5 +1,5 @@
-import { Image, Masonry, Dropdown } from "antd";
-import { WarningOutlined, LoadingOutlined, ReloadOutlined } from "@ant-design/icons";
+import { Image, Masonry, Dropdown, Flex, Typography, Tag, Spin, theme } from "antd";
+import { WarningOutlined, ReloadOutlined } from "@ant-design/icons";
 import type { MenuProps } from "antd";
 import type { AiTagStatus, LibraryImage } from "@/shared/library";
 
@@ -16,13 +16,15 @@ export function ImageGrid({
   onDelete: (id: string) => void;
   onRetryTagging: (id: string) => void;
 }) {
+  const { token } = theme.useToken();
+
   const getContextMenuItems = (image: LibraryImage): MenuProps["items"] => [
     ...(image.aiTagStatus === "failed"
       ? [
           {
             key: "retry",
             label: (
-              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ display: "flex", alignItems: "center", gap: token.paddingXS }}>
                 <ReloadOutlined />
                 Retry AI Tags
               </span>
@@ -56,7 +58,7 @@ export function ImageGrid({
         items={images}
         itemRender={(image) => (
           <Dropdown menu={{ items: getContextMenuItems(image) }} trigger={["contextMenu"]}>
-            <div style={{ overflow: "hidden", borderRadius: 6, backgroundColor: "var(--rune-card)" }}>
+            <div style={{ overflow: "hidden", borderRadius: token.borderRadius, backgroundColor: token.colorBgContainer }}>
               <Image
                 src={image.url}
                 alt={image.originalName}
@@ -83,33 +85,37 @@ type ImageCaptionProps = {
 };
 
 function ImageCaption({ status, tags }: ImageCaptionProps) {
+  const { token } = theme.useToken();
+
   if (status === "pending") {
     return null;
   }
 
   if (status === "generating") {
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 6, backgroundColor: "color-mix(in srgb, var(--rune-muted) 100%, transparent)", padding: "6px 8px", fontSize: 12, color: "var(--rune-muted-foreground)" }}>
-        <LoadingOutlined spin />
-        <span>Generating...</span>
-      </div>
+      <Flex align="center" gap={token.paddingXS} style={{ backgroundColor: token.colorFillQuaternary, padding: `${token.paddingXS}px ${token.paddingXS}px` }}>
+        <Spin size="small" />
+        <Typography.Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Generating...</Typography.Text>
+      </Flex>
     );
   }
 
   if (status === "failed") {
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 6, backgroundColor: "color-mix(in srgb, var(--rune-destructive) 10%, transparent)", padding: "6px 8px", fontSize: 12, color: "var(--rune-destructive)" }}>
-        <WarningOutlined />
-        <span>Failed</span>
-      </div>
+      <Flex align="center" gap={token.paddingXS} style={{ backgroundColor: token.colorErrorBg, padding: `${token.paddingXS}px ${token.paddingXS}px` }}>
+        <WarningOutlined style={{ color: token.colorError }} />
+        <Typography.Text type="danger" style={{ fontSize: token.fontSizeSM }}>Failed</Typography.Text>
+      </Flex>
     );
   }
 
   if (status === "complete" && tags) {
     return (
-      <div style={{ backgroundColor: "color-mix(in srgb, var(--rune-muted) 100%, transparent)", padding: "6px 8px", fontSize: 12, color: "var(--rune-muted-foreground)", lineHeight: 1.6 }}>
-        {tags}
-      </div>
+      <Flex wrap gap={4} style={{ backgroundColor: token.colorFillQuaternary, padding: `${token.paddingXS}px ${token.paddingXS}px` }}>
+        {tags.split(", ").map((tag) => (
+          <Tag key={tag} style={{ margin: 0 }}>{tag}</Tag>
+        ))}
+      </Flex>
     );
   }
 

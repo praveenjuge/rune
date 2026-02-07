@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { App as AntdApp, Alert } from "antd";
+import { useEffect, useRef, useState } from "react";
+import { App as AntdApp, Layout, Flex, theme } from "antd";
 import { ConfigModal } from "./components/app/config-modal";
 import {
   EmptySearchState,
@@ -11,9 +11,13 @@ import { Header } from "./components/app/header";
 import { ImageGrid } from "./components/app/image-grid";
 import { useAppState, useSearch } from "./components/app/use-app-state";
 
-export function App() {
+const { Content } = Layout;
+
+function AppContent() {
   const [search, setSearch] = useState("");
   const searchInputRef = useRef<any>(null);
+  const { message } = AntdApp.useApp();
+  const { token } = theme.useToken();
 
   const {
     settings,
@@ -60,6 +64,12 @@ export function App() {
     deleteImageFromState,
   } = useSearch(search, settings, resetResults, setStatus);
 
+  useEffect(() => {
+    if (status) {
+      message.error(status);
+    }
+  }, [status, message]);
+
   const handleAddImagesWrapper = async () => {
     const hasImages = await handleAddImages();
     if (hasImages) {
@@ -76,8 +86,7 @@ export function App() {
   };
 
   return (
-    <AntdApp>
-      <div style={{ display: "flex", height: "100vh", flexDirection: "column", overflow: "hidden", backgroundColor: "var(--rune-background)", color: "var(--rune-foreground)" }}>
+    <Layout style={{ height: "100vh", overflow: "hidden" }}>
       <Header
         search={search}
         onSearch={setSearch}
@@ -88,12 +97,8 @@ export function App() {
         searchInputRef={searchInputRef}
       />
 
-      <main style={{ display: "flex", width: "100%", flex: 1, flexDirection: "column", gap: 0, overflowY: "auto", paddingBottom: 24 }}>
-        <div style={{ marginLeft: "auto", marginRight: "auto", display: "flex", width: "100%", maxWidth: "72rem", flexDirection: "column", gap: 16, padding: "0 24px" }}>
-          {status ? (
-            <Alert message={status} type="error" />
-          ) : null}
-
+      <Content style={{ overflowY: "auto", paddingBottom: token.paddingLG }}>
+        <Flex vertical gap={token.margin} style={{ marginLeft: "auto", marginRight: "auto", width: "100%", maxWidth: "72rem", padding: `0 ${token.paddingLG}px` }}>
           {isBootstrapping || (isSearching && images.length === 0) ? (
             <LoadingState />
           ) : images.length === 0 ? (
@@ -112,12 +117,12 @@ export function App() {
                 onDelete={handleDeleteImageWrapper}
                 onRetryTagging={handleRetryTagging}
               />
-              <div ref={sentinelRef} style={{ height: 24 }} />
+              <div ref={sentinelRef} style={{ height: token.paddingLG }} />
               {isLoadingMore ? <LoadingMore /> : null}
             </>
           ) : null}
-        </div>
-      </main>
+        </Flex>
+      </Content>
 
       {isConfigOpen ? (
         <ConfigModal
@@ -147,7 +152,14 @@ export function App() {
           onInstallUpdate={handleInstallUpdate}
         />
       ) : null}
-      </div>
+    </Layout>
+  );
+}
+
+export function App() {
+  return (
+    <AntdApp>
+      <AppContent />
     </AntdApp>
   );
 }
