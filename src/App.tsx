@@ -26,7 +26,6 @@ function AppContent() {
     status,
     isBootstrapping,
     isImporting,
-    isSaving,
     isConfigOpen,
     deletingId,
     ollamaStatus,
@@ -37,20 +36,24 @@ function AppContent() {
     isRestartingOllama,
     updateStatus,
     currentVersion,
+    availableModels,
+    currentModel,
+    installedModels,
     setStatus,
     setIsConfigOpen,
     resetResults,
     handleOpenSettings,
     handleSelectLibrary,
-    handleSaveSettings,
     handleAddImages,
     handleDeleteImage,
     handleRetryTagging,
     handleDownloadOllama,
     handleDownloadModel,
+    handleCancelModelDownload,
     handleRestartOllama,
     handleDeleteOllamaModel,
     handleDeleteOllamaBinary,
+    handleSetCurrentModel,
     handleCheckForUpdates,
     handleInstallUpdate,
   } = useAppState();
@@ -130,7 +133,6 @@ function AppContent() {
           libraryPath={libraryPath}
           defaultPath={defaultLibraryPath}
           status={status}
-          isSaving={isSaving}
           ollamaStatus={ollamaStatus}
           ollamaProgress={ollamaProgress}
           modelProgress={modelProgress}
@@ -140,14 +142,18 @@ function AppContent() {
           showWelcome={!settings}
           updateStatus={updateStatus}
           currentVersion={currentVersion}
+          availableModels={availableModels}
+          currentModel={currentModel}
+          installedModels={installedModels}
           onClose={() => setIsConfigOpen(false)}
           onChooseFolder={handleSelectLibrary}
-          onSave={handleSaveSettings}
           onDownloadOllama={handleDownloadOllama}
           onDownloadModel={handleDownloadModel}
+          onCancelModelDownload={handleCancelModelDownload}
           onRestartOllama={handleRestartOllama}
           onDeleteOllamaModel={handleDeleteOllamaModel}
           onDeleteOllamaBinary={handleDeleteOllamaBinary}
+          onSetCurrentModel={handleSetCurrentModel}
           onCheckForUpdates={handleCheckForUpdates}
           onInstallUpdate={handleInstallUpdate}
         />

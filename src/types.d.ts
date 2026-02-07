@@ -11,7 +11,11 @@ import type {
   SearchImagesResult,
   TaggingQueueStatus,
   UpdateStatus,
+  VlModelInfo,
 } from './shared/library';
+
+// Readonly array of VL models
+type VlModelsArray = readonly VlModelInfo[];
 
 declare global {
   interface Window {
@@ -22,9 +26,7 @@ declare global {
         ollamaStatus: OllamaStatus;
       }>;
       selectLibrary: (defaultPath: string) => Promise<string | null>;
-      saveSettings: (
-        settings: LibrarySettings,
-      ) => Promise<IpcResult<LibrarySettings>>;
+      saveSettings: () => Promise<IpcResult<LibrarySettings>>;
       importImages: () => Promise<IpcResult<LibraryImage[]>>;
       searchImages: (
         payload: SearchImagesInput,
@@ -36,10 +38,15 @@ declare global {
       // Ollama APIs
       getOllamaStatus: () => Promise<OllamaStatus>;
       downloadOllama: () => Promise<IpcResult<void>>;
-      downloadModel: () => Promise<IpcResult<void>>;
+      downloadModel: (model?: string) => Promise<IpcResult<void>>;
+      cancelModelDownload: () => Promise<IpcResult<void>>;
       restartOllama: () => Promise<IpcResult<void>>;
-      deleteOllamaModel: () => Promise<IpcResult<void>>;
+      deleteOllamaModel: (model?: string) => Promise<IpcResult<void>>;
       deleteOllamaBinary: () => Promise<IpcResult<void>>;
+      getAvailableVlModels: () => Promise<IpcResult<VlModelsArray>>;
+      getCurrentModel: () => Promise<IpcResult<string>>;
+      setCurrentModel: (model: string) => Promise<IpcResult<void>>;
+      getInstalledModels: () => Promise<IpcResult<string[]>>;
       
       // Tagging APIs
       getTaggingQueueStatus: () => Promise<TaggingQueueStatus>;

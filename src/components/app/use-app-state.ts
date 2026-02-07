@@ -7,8 +7,9 @@ import type {
   OllamaStatus,
   SearchCursor,
   UpdateStatus,
+  VlModelInfo,
 } from "@/shared/library";
-import { SEARCH_PAGE_SIZE } from "@/shared/library";
+import { SEARCH_PAGE_SIZE, AVAILABLE_VL_MODELS } from "@/shared/library";
 
 export function useAppState() {
   const [settings, setSettings] = useState<LibrarySettings | null>(null);
@@ -17,7 +18,6 @@ export function useAppState() {
   const [status, setStatus] = useState<string | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [isImporting, setIsImporting] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [hasSeenWelcome, setHasSeenWelcome] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -43,6 +43,11 @@ export function useAppState() {
     state: "idle",
   });
   const [currentVersion, setCurrentVersion] = useState<string>("");
+
+  // VL model state
+  const [availableModels, setAvailableModels] = useState<readonly VlModelInfo[]>(AVAILABLE_VL_MODELS);
+  const [currentModel, setCurrentModel] = useState<string>("");
+  const [installedModels, setInstalledModels] = useState<string[]>([]);
 
   const resetResults = () => {
     // This will be called by the search hook
@@ -84,30 +89,17 @@ export function useAppState() {
     setConfigDefaults(settings, defaultLibraryPath);
     setIsConfigOpen(true);
     window.rune.getOllamaStatus().then(setOllamaStatus);
+    handleLoadCurrentModel();
+    handleLoadInstalledModels();
   };
 
   const handleSelectLibrary = async () => {
     const chosen = await window.rune.selectLibrary(libraryPath);
     if (chosen) {
       setLibraryPath(chosen);
+      // Auto-save settings when library path is changed
+      await window.rune.saveSettings();
     }
-  };
-
-  const handleSaveSettings = async () => {
-    setStatus(null);
-    setIsSaving(true);
-    const result = await window.rune.saveSettings();
-    setIsSaving(false);
-
-    if (result.ok === false) {
-      setStatus(result.error);
-      return;
-    }
-
-    setSettings(result.data);
-    setHasSeenWelcome(true);
-    setIsConfigOpen(false);
-    resetResults();
   };
 
   const handleAddImages = async () => {
@@ -166,12 +158,12 @@ export function useAppState() {
     }
   };
 
-  const handleDownloadModel = async () => {
+  const handleDownloadModel = async (model?: string) => {
     setIsDownloadingModel(true);
     setModelProgress(null);
     setStatus(null);
 
-    const result = await window.rune.downloadModel();
+    const result = await window.rune.downloadModel(model);
     if (result.ok === false) {
       setStatus(result.error);
       setIsDownloadingModel(false);
@@ -205,6 +197,14 @@ export function useAppState() {
     }
   };
 
+  const handleCancelModelDownload = async () => {
+    setStatus(null);
+    const result = await window.rune.cancelModelDownload();
+    if (result.ok === false) {
+      setStatus(result.error);
+    }
+  };
+
   const handleDeleteOllamaBinary = async () => {
     setStatus(null);
     const result = await window.rune.deleteOllamaBinary();
@@ -214,6 +214,37 @@ export function useAppState() {
     } else {
       // Refresh status after deletion
       window.rune.getOllamaStatus().then(setOllamaStatus);
+    }
+  };
+
+  const handleSetCurrentModel = async (model: string) => {
+    setStatus(null);
+    const result = await window.rune.setCurrentModel(model);
+    if (result.ok === false) {
+      setStatus(result.error);
+    } else {
+      setCurrentModel(model);
+    }
+  };
+
+  const handleLoadAvailableModels = async () => {
+    const result = await window.rune.getAvailableVlModels();
+    if (result.ok === true) {
+      setAvailableModels(result.data);
+    }
+  };
+
+  const handleLoadCurrentModel = async () => {
+    const result = await window.rune.getCurrentModel();
+    if (result.ok === true) {
+      setCurrentModel(result.data);
+    }
+  };
+
+  const handleLoadInstalledModels = async () => {
+    const result = await window.rune.getInstalledModels();
+    if (result.ok === true) {
+      setInstalledModels(result.data);
     }
   };
 
@@ -245,6 +276,7 @@ export function useAppState() {
       if (progress.status === "complete") {
         setIsDownloadingModel(false);
         window.rune.getOllamaStatus().then(setOllamaStatus);
+        handleLoadInstalledModels();
       } else if (progress.status === "error") {
         setIsDownloadingModel(false);
         setStatus(progress.error || "Failed to download model");
@@ -280,7 +312,6 @@ export function useAppState() {
     status,
     isBootstrapping,
     isImporting,
-    isSaving,
     isConfigOpen,
     hasSeenWelcome,
     deletingId,
@@ -292,20 +323,24 @@ export function useAppState() {
     isRestartingOllama,
     updateStatus,
     currentVersion,
+    availableModels,
+    currentModel,
+    installedModels,
     setStatus,
     setIsConfigOpen,
     resetResults,
     handleOpenSettings,
     handleSelectLibrary,
-    handleSaveSettings,
     handleAddImages,
     handleDeleteImage,
     handleRetryTagging,
     handleDownloadOllama,
     handleDownloadModel,
+    handleCancelModelDownload,
     handleRestartOllama,
     handleDeleteOllamaModel,
     handleDeleteOllamaBinary,
+    handleSetCurrentModel,
     handleCheckForUpdates,
     handleInstallUpdate,
   };

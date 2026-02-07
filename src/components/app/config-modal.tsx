@@ -2,9 +2,7 @@ import {
   App,
   Button,
   Badge,
-  Descriptions,
   Flex,
-  Form,
   Input,
   Modal,
   Popconfirm,
@@ -16,6 +14,8 @@ import {
   Typography,
   Alert,
   theme,
+  Tag,
+  Divider,
 } from "antd";
 import {
   CheckCircleOutlined,
@@ -29,16 +29,21 @@ import {
   DeleteOutlined,
 } from "@ant-design/icons";
 import { useTheme } from "@/components/theme-provider";
-import type { DownloadProgress, OllamaStatus, UpdateStatus } from "@/shared/library";
+import type {
+  DownloadProgress,
+  OllamaStatus,
+  UpdateStatus,
+  VlModelInfo,
+} from "@/shared/library";
+import { useState } from "react";
 
-const { Text } = Typography;
+const { Text, Title, Paragraph } = Typography;
 
 export function ConfigModal({
   isOpen,
   libraryPath,
   defaultPath,
   status,
-  isSaving,
   ollamaStatus,
   ollamaProgress,
   modelProgress,
@@ -48,14 +53,18 @@ export function ConfigModal({
   showWelcome,
   updateStatus,
   currentVersion,
+  availableModels,
+  currentModel,
+  installedModels,
   onClose,
   onChooseFolder,
-  onSave,
   onDownloadOllama,
   onDownloadModel,
+  onCancelModelDownload,
   onRestartOllama,
   onDeleteOllamaModel,
   onDeleteOllamaBinary,
+  onSetCurrentModel,
   onCheckForUpdates,
   onInstallUpdate,
 }: {
@@ -63,7 +72,6 @@ export function ConfigModal({
   libraryPath: string;
   defaultPath: string;
   status: string | null;
-  isSaving: boolean;
   ollamaStatus: OllamaStatus;
   ollamaProgress: DownloadProgress | null;
   modelProgress: DownloadProgress | null;
@@ -73,86 +81,107 @@ export function ConfigModal({
   showWelcome: boolean;
   updateStatus: UpdateStatus;
   currentVersion: string;
+  availableModels: readonly VlModelInfo[];
+  currentModel: string;
+  installedModels: string[];
   onClose: () => void;
   onChooseFolder: () => void;
-  onSave: () => void;
   onDownloadOllama: () => void;
-  onDownloadModel: () => void;
+  onDownloadModel: (model?: string) => void;
+  onCancelModelDownload: () => void;
   onRestartOllama: () => void;
   onDeleteOllamaModel: () => void;
   onDeleteOllamaBinary: () => void;
+  onSetCurrentModel: (model: string) => void;
   onCheckForUpdates: () => void;
   onInstallUpdate: () => void;
 }) {
   const { theme: currentTheme, setTheme } = useTheme();
 
-  const setupStep = !ollamaStatus.binaryInstalled ? 0 : !ollamaStatus.modelInstalled ? 1 : 2;
+  const setupStep = !ollamaStatus.binaryInstalled
+    ? 0
+    : !ollamaStatus.modelInstalled
+      ? 1
+      : 2;
 
   return (
     <Modal
       open={isOpen}
       onCancel={onClose}
       title="Settings"
-      onOk={onSave}
-      okText="Save"
-      confirmLoading={isSaving}
-      width={480}
+      footer={null}
+      width={540}
     >
-      {showWelcome && (
-        <Space direction="vertical" size="middle">
-          <Alert
-            banner
-            message="Welcome to Rune! Your library folder has been set to Documents/Rune. Click Save to continue."
-            type="info"
-          />
-          <Steps
-            size="small"
-            current={setupStep}
-            items={[
-              { title: "Install Ollama" },
-              { title: "Download Model" },
-              { title: "Ready" },
-            ]}
-          />
-        </Space>
-      )}
-
-      <Descriptions column={1} bordered size="small">
-        <Descriptions.Item label="Library folder">
-          <Space.Compact block>
-            <Input
-              value={libraryPath || defaultPath}
-              readOnly
+      <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+        {showWelcome && (
+          <Space
+            direction="vertical"
+            size="middle"
+            style={{ marginBottom: 16 }}
+          >
+            <Alert
+              banner
+              message="Welcome to Rune! Your library folder has been set to Documents/Rune."
+              type="info"
             />
-            <Tooltip title="Choose folder">
-              <Button onClick={onChooseFolder} icon={<FolderOpenOutlined />} />
-            </Tooltip>
-          </Space.Compact>
-        </Descriptions.Item>
+            <Steps
+              size="small"
+              current={setupStep}
+              items={[
+                { title: "Install Ollama" },
+                { title: "Download Model" },
+                { title: "Ready" },
+              ]}
+            />
+          </Space>
+        )}
+        <Divider style={{ margin: 1 }} />
+        {/* Library folder */}
+        <Flex align="center" justify="space-between">
+          <Text type="secondary" strong>
+            Library
+          </Text>
+          <Button onClick={onChooseFolder} icon={<FolderOpenOutlined />}>
+            {libraryPath || defaultPath}
+          </Button>
+        </Flex>
 
-        <Descriptions.Item label="Ollama Binary">
-          <OllamaBinarySetup
-            status={ollamaStatus}
-            ollamaProgress={ollamaProgress}
-            isDownloadingOllama={isDownloadingOllama}
-            isRestartingOllama={isRestartingOllama}
-            onDownloadOllama={onDownloadOllama}
-            onRestartOllama={onRestartOllama}
-            onDeleteOllamaBinary={onDeleteOllamaBinary}
-          />
-        </Descriptions.Item>
+        <Divider style={{ margin: 1 }} />
 
-        <Descriptions.Item label="AI Model">
-          <OllamaModelSetup
-            status={ollamaStatus}
-            modelProgress={modelProgress}
-            isDownloadingModel={isDownloadingModel}
-            onDownloadModel={onDownloadModel}
-            onDeleteOllamaModel={onDeleteOllamaModel}
-          />
-        </Descriptions.Item>
+        {/* Ollama Binary */}
+        <OllamaBinarySetup
+          status={ollamaStatus}
+          ollamaProgress={ollamaProgress}
+          isDownloadingOllama={isDownloadingOllama}
+          isRestartingOllama={isRestartingOllama}
+          onDownloadOllama={onDownloadOllama}
+          onRestartOllama={onRestartOllama}
+          onDeleteOllamaBinary={onDeleteOllamaBinary}
+        />
 
-        <Descriptions.Item label="Theme">
+        <Divider style={{ margin: 1 }} />
+
+        {/* Models */}
+        <OllamaModelSetup
+          status={ollamaStatus}
+          modelProgress={modelProgress}
+          isDownloadingModel={isDownloadingModel}
+          availableModels={availableModels}
+          currentModel={currentModel}
+          installedModels={installedModels}
+          onDownloadModel={onDownloadModel}
+          onCancelModelDownload={onCancelModelDownload}
+          onDeleteOllamaModel={onDeleteOllamaModel}
+          onSetCurrentModel={onSetCurrentModel}
+        />
+
+        <Divider style={{ margin: 1 }} />
+
+        {/* Theme */}
+        <Flex justify="space-between" align="center">
+          <Text type="secondary" strong>
+            Theme
+          </Text>
           <Segmented
             value={currentTheme}
             onChange={(value) => setTheme(value as "system" | "light" | "dark")}
@@ -162,17 +191,23 @@ export function ConfigModal({
               { label: "Dark", value: "dark", icon: <MoonOutlined /> },
             ]}
           />
-        </Descriptions.Item>
+        </Flex>
 
-        <Descriptions.Item label="App Updates">
+        <Divider style={{ margin: 1 }} />
+
+        {/* App Updates */}
+        <Flex justify="space-between" align="center">
+          <Text type="secondary" strong>
+            Updates
+          </Text>
           <AppUpdateSection
             updateStatus={updateStatus}
             currentVersion={currentVersion}
             onCheckForUpdates={onCheckForUpdates}
             onInstallUpdate={onInstallUpdate}
           />
-        </Descriptions.Item>
-      </Descriptions>
+        </Flex>
+      </Space>
 
       {status && (
         <Alert message={status} type="error" style={{ marginTop: 16 }} />
@@ -211,23 +246,42 @@ function OllamaBinarySetup({
 
   if (isDownloadingOllama && ollamaProgress) {
     return (
-      <Space>
-        <LoadingOutlined spin />
-        <Text type="secondary">
-          {formatBytes(ollamaProgress.downloaded)} / {formatBytes(ollamaProgress.total)}
+      <Flex align="center" justify="space-between">
+        <Text type="secondary" strong>
+          Ollama
         </Text>
-        <Progress percent={ollamaProgress.percent} size="small" />
-      </Space>
+        <Space>
+          <LoadingOutlined spin />
+          <Text type="secondary">
+            {formatBytes(ollamaProgress.downloaded)} /{" "}
+            {formatBytes(ollamaProgress.total)}
+          </Text>
+          <Progress
+            percent={ollamaProgress.percent}
+            size="small"
+            style={{ width: 60 }}
+          />
+        </Space>
+      </Flex>
     );
   }
 
   if (!status.binaryInstalled) {
     return (
       <Flex align="center" justify="space-between">
-        <Text type="secondary">Not installed</Text>
-        <Button onClick={onDownloadOllama} size="small" icon={<DownloadOutlined />}>
-          Download
-        </Button>
+        <Text type="secondary" strong>
+          Ollama
+        </Text>
+        <Space size="small">
+          <Text type="secondary">Not installed</Text>
+          <Button
+            onClick={onDownloadOllama}
+            size="small"
+            icon={<DownloadOutlined />}
+          >
+            Download
+          </Button>
+        </Space>
       </Flex>
     );
   }
@@ -235,8 +289,17 @@ function OllamaBinarySetup({
   return (
     <Flex align="center" justify="space-between">
       <Space>
-        <CheckCircleOutlined style={{ color: token.colorSuccess }} />
-        {status.serverRunning && <Badge status="processing" text="Running" />}
+        <Text type="secondary" strong>
+          Ollama
+        </Text>
+        {status.serverRunning && (
+          <Tag
+            color="green"
+            style={{ margin: 0, fontSize: "11px", padding: "0 4px" }}
+          >
+            Running
+          </Tag>
+        )}
       </Space>
       <Space size="small">
         <Tooltip title="Restart Ollama">
@@ -266,12 +329,7 @@ function OllamaBinarySetup({
           }}
         >
           <Tooltip title="Delete Ollama">
-            <Button
-              type="text"
-              size="small"
-              danger
-              icon={<DeleteOutlined />}
-            />
+            <Button type="text" size="small" danger icon={<DeleteOutlined />} />
           </Tooltip>
         </Popconfirm>
       </Space>
@@ -283,78 +341,52 @@ function OllamaModelSetup({
   status,
   modelProgress,
   isDownloadingModel,
+  availableModels,
+  currentModel,
+  installedModels,
   onDownloadModel,
+  onCancelModelDownload,
   onDeleteOllamaModel,
+  onSetCurrentModel,
 }: {
   status: OllamaStatus;
   modelProgress: DownloadProgress | null;
   isDownloadingModel: boolean;
-  onDownloadModel: () => void;
+  availableModels: readonly VlModelInfo[];
+  currentModel: string;
+  installedModels: string[];
+  onDownloadModel: (model?: string) => void;
+  onCancelModelDownload: () => void;
   onDeleteOllamaModel: () => void;
+  onSetCurrentModel: (model: string) => void;
 }) {
   const { modal } = App.useApp();
   const { token } = theme.useToken();
 
   if (!status.binaryInstalled) {
-    return <Text type="secondary">Install Ollama first</Text>;
-  }
-
-  if (isDownloadingModel && modelProgress) {
-    return (
-      <Space>
-        <LoadingOutlined spin />
-        <Text type="secondary">
-          {formatBytes(modelProgress.downloaded)} / {formatBytes(modelProgress.total)}
-        </Text>
-        <Progress percent={modelProgress.percent} size="small" />
-      </Space>
-    );
-  }
-
-  if (!status.modelInstalled) {
     return (
       <Flex align="center" justify="space-between">
-        <Text type="secondary">Not installed</Text>
-        <Button onClick={onDownloadModel} size="small" icon={<DownloadOutlined />}>
-          Download
-        </Button>
+        <Text type="secondary" strong>
+          Models
+        </Text>
+        <Text type="secondary">Install Ollama first</Text>
       </Flex>
     );
   }
 
   return (
-    <Flex align="center" justify="space-between">
-      <Space>
-        <CheckCircleOutlined style={{ color: token.colorSuccess }} />
-        {status.serverRunning && <Badge status="success" text="Ready" />}
-      </Space>
-      <Popconfirm
-        title="Delete model?"
-        description="This will remove the local AI model files."
-        okText="Delete"
-        cancelText="Cancel"
-        okButtonProps={{ danger: true }}
-        onConfirm={() => {
-          modal.confirm({
-            title: "Confirm delete",
-            content: "This action cannot be undone.",
-            okText: "Delete",
-            okType: "danger",
-            cancelText: "Cancel",
-            onOk: onDeleteOllamaModel,
-          });
-        }}
-      >
-        <Tooltip title="Delete model">
-          <Button
-            type="text"
-            size="small"
-            danger
-            icon={<DeleteOutlined />}
-          />
-        </Tooltip>
-      </Popconfirm>
-    </Flex>
+    <VlModelList
+      availableModels={availableModels}
+      currentModel={currentModel}
+      installedModels={installedModels}
+      serverRunning={status.serverRunning}
+      isDownloadingModel={isDownloadingModel}
+      modelProgress={modelProgress}
+      onDownloadModel={onDownloadModel}
+      onCancelModelDownload={onCancelModelDownload}
+      onSelectModel={onSetCurrentModel}
+      onDeleteOllamaModel={onDeleteOllamaModel}
+    />
   );
 }
 
@@ -402,27 +434,202 @@ function AppUpdateSection({
         )}
 
         {updateStatus.state === "idle" && (
-          <Button size="small" onClick={onCheckForUpdates} icon={<ReloadOutlined />}>
+          <Button
+            size="small"
+            onClick={onCheckForUpdates}
+            icon={<ReloadOutlined />}
+          >
             Check
           </Button>
         )}
 
         {isNotAvailable && (
           <Tooltip title="Check again">
-            <Button type="text" size="small" onClick={onCheckForUpdates} icon={<ReloadOutlined />} />
+            <Button
+              type="text"
+              size="small"
+              onClick={onCheckForUpdates}
+              icon={<ReloadOutlined />}
+            />
           </Tooltip>
         )}
 
         {hasError && (
-          <Button size="small" onClick={onCheckForUpdates}>Retry</Button>
+          <Button size="small" onClick={onCheckForUpdates}>
+            Retry
+          </Button>
         )}
 
         {isDownloaded && (
-          <Button type="primary" size="small" onClick={onInstallUpdate} icon={<ReloadOutlined />}>
+          <Button
+            type="primary"
+            size="small"
+            onClick={onInstallUpdate}
+            icon={<ReloadOutlined />}
+          >
             Restart & Update
           </Button>
         )}
       </Space>
+    </Flex>
+  );
+}
+
+function VlModelList({
+  availableModels,
+  currentModel,
+  installedModels,
+  serverRunning,
+  isDownloadingModel,
+  modelProgress,
+  onDownloadModel,
+  onCancelModelDownload,
+  onSelectModel,
+  onDeleteOllamaModel,
+}: {
+  availableModels: readonly VlModelInfo[];
+  currentModel: string;
+  installedModels: string[];
+  serverRunning: boolean;
+  isDownloadingModel: boolean;
+  modelProgress: DownloadProgress | null;
+  onDownloadModel: (model: string) => void;
+  onCancelModelDownload: () => void;
+  onSelectModel: (model: string) => void;
+  onDeleteOllamaModel: () => void;
+}) {
+  const { modal } = App.useApp();
+  const { token } = theme.useToken();
+
+  // Helper to check if model is installed (matches with or without tag)
+  const isModelInstalled = (modelName: string) => {
+    return installedModels.some(
+      (installed) =>
+        installed === modelName || installed.startsWith(modelName + ":"),
+    );
+  };
+
+  return (
+    <Flex vertical gap={2} style={{ width: "100%" }}>
+      <Text type="secondary" strong>
+        Models
+      </Text>
+      {Array.from(availableModels).map((model) => {
+        const installed = isModelInstalled(model.name);
+        const isCurrent = currentModel === model.name;
+        const isDownloading = isDownloadingModel && isCurrent;
+
+        return (
+          <Flex
+            key={model.name}
+            vertical
+            style={{
+              padding: token.paddingXS,
+              borderRadius: token.borderRadiusSM,
+              backgroundColor: isCurrent ? token.colorBgLayout : "transparent",
+              cursor: isDownloading ? "not-allowed" : "pointer",
+              opacity: isDownloading && !isCurrent ? 0.5 : 1,
+            }}
+            onClick={() => !isDownloading && onSelectModel(model.name)}
+          >
+            <Flex align="center" justify="space-between">
+              <Space size="small">
+                <Text style={{ fontSize: "13px" }}>{model.displayName}</Text>
+                {model.recommended && (
+                  <Tag
+                    color="blue"
+                    style={{ margin: 0, fontSize: "11px", padding: "0 4px" }}
+                  >
+                    Recommended
+                  </Tag>
+                )}
+                {installed && isCurrent && serverRunning && (
+                  <Tag
+                    color="green"
+                    style={{ margin: 0, fontSize: "11px", padding: "0 4px" }}
+                  >
+                    Active
+                  </Tag>
+                )}
+                {installed && (
+                  <Tag
+                    color="default"
+                    style={{ margin: 0, fontSize: "11px", padding: "0 4px" }}
+                  >
+                    Downloaded
+                  </Tag>
+                )}
+              </Space>
+              <Space size={4}>
+                <Text type="secondary" style={{ fontSize: "11px" }}>
+                  {model.size}
+                </Text>
+                {isDownloadingModel && isCurrent && modelProgress ? (
+                  <Space size="small">
+                    <LoadingOutlined spin />
+                    <Text type="secondary" style={{ fontSize: "11px" }}>
+                      {Math.round(modelProgress.percent)}%
+                    </Text>
+                    <Progress
+                      percent={modelProgress.percent}
+                      size="small"
+                      style={{ width: 50 }}
+                    />
+                    <Button
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onCancelModelDownload();
+                      }}
+                    >
+                      Stop
+                    </Button>
+                  </Space>
+                ) : !installed && isCurrent ? (
+                  <Button
+                    size="small"
+                    type="primary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDownloadModel(model.name);
+                    }}
+                    style={{
+                      fontSize: "12px",
+                      height: "22px",
+                      padding: "0 8px",
+                    }}
+                  >
+                    Download
+                  </Button>
+                ) : null}
+                {installed && isCurrent && (
+                  <Popconfirm
+                    title="Delete model?"
+                    description="This will remove the local models files."
+                    okText="Delete"
+                    cancelText="Cancel"
+                    okButtonProps={{ danger: true }}
+                    onConfirm={onDeleteOllamaModel}
+                  >
+                    <Tooltip title="Delete model">
+                      <Button
+                        type="text"
+                        size="small"
+                        danger
+                        icon={<DeleteOutlined />}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </Tooltip>
+                  </Popconfirm>
+                )}
+              </Space>
+            </Flex>
+            <Text type="secondary" style={{ fontSize: "12px", marginTop: 2 }}>
+              {model.description}
+            </Text>
+          </Flex>
+        );
+      })}
     </Flex>
   );
 }

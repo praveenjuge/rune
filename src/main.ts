@@ -8,6 +8,7 @@ import {
   IPC_EVENTS,
   RUNE_PROTOCOL,
   RUNE_PROTOCOL_HOST,
+  AVAILABLE_VL_MODELS,
   type DeleteImagePayload,
   type DeleteImageResult,
   type DownloadProgress,
@@ -430,6 +431,19 @@ app.whenReady().then(async () => {
   );
 
   ipcMain.handle(
+    IPC_CHANNELS.cancelModelDownload,
+    async (): Promise<IpcResult<void>> => {
+      try {
+        ollamaManager.cancelModelDownload();
+        return success(undefined);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to cancel download';
+        return failure(message);
+      }
+    },
+  );
+
+  ipcMain.handle(
     IPC_CHANNELS.restartOllama,
     async (): Promise<IpcResult<void>> => {
       try {
@@ -463,6 +477,55 @@ app.whenReady().then(async () => {
         return success(undefined);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to delete Ollama';
+        return failure(message);
+      }
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.getAvailableVlModels,
+    async (): Promise<IpcResult<typeof AVAILABLE_VL_MODELS>> => {
+      try {
+        return success(AVAILABLE_VL_MODELS);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to get available models';
+        return failure(message);
+      }
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.getCurrentModel,
+    async (): Promise<IpcResult<string>> => {
+      try {
+        return success(ollamaManager.getCurrentModel());
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to get current model';
+        return failure(message);
+      }
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.setCurrentModel,
+    async (_event, model: string): Promise<IpcResult<void>> => {
+      try {
+        ollamaManager.setCurrentModel(model);
+        return success(undefined);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to set current model';
+        return failure(message);
+      }
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.getInstalledModels,
+    async (): Promise<IpcResult<string[]>> => {
+      try {
+        return success(await ollamaManager.listInstalledModels());
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to get installed models';
         return failure(message);
       }
     },

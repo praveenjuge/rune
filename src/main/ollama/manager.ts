@@ -9,7 +9,7 @@ import { EventEmitter } from 'node:events';
 import {
   type OllamaStatus,
   type DownloadProgress,
-  OLLAMA_MODEL,
+  DEFAULT_MODEL,
 } from '../../shared/library';
 
 // Ollama version to download
@@ -40,6 +40,8 @@ class OllamaManager extends EventEmitter {
   private serverProcess: ChildProcess | null = null;
   private isDownloadingBinary = false;
   private isDownloadingModel = false;
+  private modelDownloadAbortController: AbortController | null = null;
+  private currentModel: string = DEFAULT_MODEL;
   private currentStatus: OllamaStatus = {
     binaryInstalled: false,
     modelInstalled: false,
@@ -68,7 +70,7 @@ class OllamaManager extends EventEmitter {
     if (binaryInstalled) {
       serverRunning = await this.isServerRunning();
       if (serverRunning) {
-        modelInstalled = await this.isModelInstalled();
+        modelInstalled = await this.isModelInstalled(this.currentModel);
       }
     }
 
@@ -120,19 +122,45 @@ class OllamaManager extends EventEmitter {
     }
   }
 
-  private async isModelInstalled(): Promise<boolean> {
+  private async isModelInstalled(model: string = this.currentModel): Promise<boolean> {
     try {
       const response = await this.fetch(`${OLLAMA_HOST}/api/tags`, {
         method: 'GET',
         timeout: 5000,
       });
       if (!response.ok) return false;
-      
+
       const data = await response.json() as { models?: Array<{ name: string }> };
       const models = data.models || [];
-      return models.some((m) => m.name === OLLAMA_MODEL || m.name.startsWith(OLLAMA_MODEL.split(':')[0]));
+      return models.some((m) => m.name === model || m.name.startsWith(model.split(':')[0]));
     } catch {
       return false;
+    }
+  }
+
+  getCurrentModel(): string {
+    return this.currentModel;
+  }
+
+  setCurrentModel(model: string): void {
+    this.currentModel = model;
+  }
+
+  async listInstalledModels(): Promise<string[]> {
+    if (!(await this.isServerRunning())) {
+      return [];
+    }
+    try {
+      const response = await this.fetch(`${OLLAMA_HOST}/api/tags`, {
+        method: 'GET',
+        timeout: 5000,
+      });
+      if (!response.ok) return [];
+
+      const data = await response.json() as { models?: Array<{ name: string }> };
+      return (data.models || []).map((m) => m.name);
+    } catch {
+      return [];
     }
   }
 
@@ -320,10 +348,16 @@ class OllamaManager extends EventEmitter {
   }
 
   async downloadModel(
+    model?: string,
     onProgress?: (progress: DownloadProgress) => void
   ): Promise<void> {
     if (this.isDownloadingModel) {
       throw new Error('Already downloading model');
+    }
+
+    const targetModel = model || this.currentModel;
+    if (model) {
+      this.currentModel = model;
     }
 
     // Ensure server is running
@@ -335,9 +369,10 @@ class OllamaManager extends EventEmitter {
 
     this.isDownloadingModel = true;
     this.currentStatus.status = 'downloading-model';
+    this.modelDownloadAbortController = new AbortController();
 
     try {
-      await this.pullModelWithProgress(onProgress);
+      await this.pullModelWithProgress(targetModel, onProgress, this.modelDownloadAbortController.signal);
 
       const completeProgress: DownloadProgress = {
         type: 'model',
@@ -364,15 +399,38 @@ class OllamaManager extends EventEmitter {
       throw error;
     } finally {
       this.isDownloadingModel = false;
+      this.modelDownloadAbortController = null;
+    }
+  }
+
+  cancelModelDownload(): void {
+    if (this.modelDownloadAbortController) {
+      this.modelDownloadAbortController.abort();
+      this.modelDownloadAbortController = null;
+      this.isDownloadingModel = false;
     }
   }
 
   private pullModelWithProgress(
-    onProgress?: (progress: DownloadProgress) => void
+    model: string,
+    onProgress?: (progress: DownloadProgress) => void,
+    signal?: AbortSignal
   ): Promise<void> {
     return new Promise((resolve, reject) => {
-      const postData = JSON.stringify({ name: OLLAMA_MODEL, stream: true });
-      
+      const postData = JSON.stringify({ name: model, stream: true });
+
+      // Handle abort signal
+      if (signal) {
+        if (signal.aborted) {
+          reject(new Error('Download cancelled'));
+          return;
+        }
+        signal.addEventListener('abort', () => {
+          req.destroy();
+          reject(new Error('Download cancelled'));
+        });
+      }
+
       const req = http.request(
         {
           hostname: '127.0.0.1',
@@ -397,13 +455,13 @@ class OllamaManager extends EventEmitter {
           res.on('data', (chunk: Buffer) => {
             buffer += chunk.toString();
             const lines = buffer.split('\n');
-            
+
             // Keep incomplete line in buffer
             buffer = lines.pop() || '';
-            
+
             for (const line of lines) {
               if (!line.trim()) continue;
-              
+
               try {
                 const data = JSON.parse(line) as {
                   status?: string;
@@ -540,7 +598,9 @@ class OllamaManager extends EventEmitter {
     await this.checkStatus();
   }
 
-  async deleteModel(): Promise<void> {
+  async deleteModel(model?: string): Promise<void> {
+    const targetModel = model || this.currentModel;
+
     // Start server if not running
     if (!(await this.isServerRunning())) {
       await this.startServer();
@@ -548,7 +608,7 @@ class OllamaManager extends EventEmitter {
     }
 
     return new Promise((resolve, reject) => {
-      const modelData = JSON.stringify({ name: OLLAMA_MODEL });
+      const modelData = JSON.stringify({ name: targetModel });
       const urlObj = new URL(`${OLLAMA_HOST}/api/delete`);
 
       const req = http.request(
@@ -631,7 +691,9 @@ class OllamaManager extends EventEmitter {
     await this.checkStatus();
   }
 
-  async generateTags(imagePath: string): Promise<string> {
+  async generateTags(imagePath: string, model?: string): Promise<string> {
+    const targetModel = model || this.currentModel;
+
     if (!(await this.isServerRunning())) {
       await this.startServer();
       await this.waitForServer();
@@ -645,7 +707,7 @@ class OllamaManager extends EventEmitter {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: OLLAMA_MODEL,
+        model: targetModel,
         prompt: 'Describe this image in 5-10 keyword tags, comma separated. Only output the tags, nothing else. Be concise and specific.',
         images: [base64Image],
         stream: false,

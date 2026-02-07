@@ -13,7 +13,56 @@ export const RUNE_PROTOCOL = "rune";
 export const RUNE_PROTOCOL_HOST = "local";
 export const SEARCH_PAGE_SIZE = 200;
 export const MIN_SQLITE_VERSION = "3.46.0";
-export const OLLAMA_MODEL = "qwen3-vl:2b";
+export const DEFAULT_OLLAMA_MODEL = "qwen3-vl:2b";
+
+export const AVAILABLE_VL_MODELS = [
+  {
+    name: "qwen3-vl:2b",
+    displayName: "Qwen3-VL 2B",
+    description: "Latest VL model with excellent OCR and reasoning.",
+    size: "~1.5GB",
+    recommended: true,
+  },
+  {
+    name: "qwen3-vl:4b",
+    displayName: "Qwen3-VL 4B",
+    description: "Higher quality version of Qwen3.",
+    size: "~3GB",
+    recommended: false,
+  },
+  {
+    name: "ministral-3:3b",
+    displayName: "Ministral 3 3B",
+    description: "Fast and efficient for edge deployment.",
+    size: "~2GB",
+    recommended: false,
+  },
+  {
+    name: "gemma3:4b",
+    displayName: "Gemma 3 4B",
+    description: "Google's capable vision model.",
+    size: "~3GB",
+    recommended: false,
+  },
+  {
+    name: "llava:7b",
+    displayName: "LLaVA 7B",
+    description: "Classic reliable model for image understanding.",
+    size: "~4.0GB",
+    recommended: false,
+  },
+  {
+    name: "deepseek-ocr:3b",
+    displayName: "DeepSeek-OCR 3B",
+    description: "Specialized for OCR on text-heavy images.",
+    size: "~2GB",
+    recommended: false,
+  },
+] as const;
+
+export type VlModelInfo = typeof AVAILABLE_VL_MODELS[number];
+
+export const DEFAULT_MODEL = DEFAULT_OLLAMA_MODEL;
 
 export type AiTagStatus = 'pending' | 'generating' | 'complete' | 'failed';
 
@@ -124,9 +173,14 @@ export const IPC_CHANNELS = {
   getOllamaStatus: "rune:ollama-status",
   downloadOllama: "rune:download-ollama",
   downloadModel: "rune:download-model",
+  cancelModelDownload: "rune:cancel-model-download",
   restartOllama: "rune:restart-ollama",
   deleteOllamaModel: "rune:delete-ollama-model",
   deleteOllamaBinary: "rune:delete-ollama-binary",
+  getAvailableVlModels: "rune:get-available-vl-models",
+  getCurrentModel: "rune:get-current-model",
+  setCurrentModel: "rune:set-current-model",
+  getInstalledModels: "rune:get-installed-models",
   // Tagging channels
   getTaggingQueueStatus: "rune:tagging-queue-status",
   retryTagging: "rune:retry-tagging",
