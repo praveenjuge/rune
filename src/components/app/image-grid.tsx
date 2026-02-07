@@ -1,4 +1,4 @@
-import { Image, Masonry, Dropdown, Flex, Typography, Tag, Spin, theme } from "antd";
+import { App, Card, Image, Masonry, Dropdown, Space, Typography, Tag, Spin, Popconfirm } from "antd";
 import { WarningOutlined, ReloadOutlined } from "@ant-design/icons";
 import type { MenuProps } from "antd";
 import type { AiTagStatus, LibraryImage } from "@/shared/library";
@@ -16,7 +16,18 @@ export function ImageGrid({
   onDelete: (id: string) => void;
   onRetryTagging: (id: string) => void;
 }) {
-  const { token } = theme.useToken();
+  const { modal } = App.useApp();
+
+  const handleDelete = (image: LibraryImage) => {
+    modal.confirm({
+      title: "Delete image?",
+      content: `"${image.originalName}" will be removed from your library.`,
+      okText: "Delete",
+      okType: "danger",
+      cancelText: "Cancel",
+      onOk: () => onDelete(image.id),
+    });
+  };
 
   const getContextMenuItems = (image: LibraryImage): MenuProps["items"] => [
     ...(image.aiTagStatus === "failed"
@@ -24,10 +35,10 @@ export function ImageGrid({
           {
             key: "retry",
             label: (
-              <span style={{ display: "flex", alignItems: "center", gap: token.paddingXS }}>
+              <Space size="small">
                 <ReloadOutlined />
                 Retry AI Tags
-              </span>
+              </Space>
             ),
             onClick: () => onRetryTagging(image.id),
           },
@@ -39,7 +50,7 @@ export function ImageGrid({
       label: deletingId === image.id ? "Deleting…" : "Delete",
       danger: true,
       disabled: deletingId === image.id,
-      onClick: () => onDelete(image.id),
+      onClick: () => handleDelete(image),
     },
   ];
 
@@ -58,20 +69,23 @@ export function ImageGrid({
         items={images}
         itemRender={(image) => (
           <Dropdown menu={{ items: getContextMenuItems(image) }} trigger={["contextMenu"]}>
-            <div style={{ overflow: "hidden", borderRadius: token.borderRadius, backgroundColor: token.colorBgContainer }}>
-              <Image
-                src={image.url}
-                alt={image.originalName}
-                preview={{
-                  mask: "Click to preview",
-                }}
-                style={{ width: "100%", display: "block" }}
-              />
+            <Card
+              size="small"
+              hoverable
+              cover={
+                <Image
+                  src={image.url}
+                  alt={image.originalName}
+                  preview={{ mask: "Click to preview" }}
+                />
+              }
+              styles={{ body: { padding: 0 } }}
+            >
               <ImageCaption
                 status={image.aiTagStatus}
                 tags={image.aiTags}
               />
-            </div>
+            </Card>
           </Dropdown>
         )}
       />
@@ -85,37 +99,32 @@ type ImageCaptionProps = {
 };
 
 function ImageCaption({ status, tags }: ImageCaptionProps) {
-  const { token } = theme.useToken();
-
   if (status === "pending") {
     return null;
   }
 
   if (status === "generating") {
     return (
-      <Flex align="center" gap={token.paddingXS} style={{ backgroundColor: token.colorFillQuaternary, padding: `${token.paddingXS}px ${token.paddingXS}px` }}>
+      <Space size="small">
         <Spin size="small" />
-        <Typography.Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Generating...</Typography.Text>
-      </Flex>
+        <Typography.Text type="secondary">Generating...</Typography.Text>
+      </Space>
     );
   }
 
   if (status === "failed") {
     return (
-      <Flex align="center" gap={token.paddingXS} style={{ backgroundColor: token.colorErrorBg, padding: `${token.paddingXS}px ${token.paddingXS}px` }}>
-        <WarningOutlined style={{ color: token.colorError }} />
-        <Typography.Text type="danger" style={{ fontSize: token.fontSizeSM }}>Failed</Typography.Text>
-      </Flex>
+      <Tag color="error" icon={<WarningOutlined />}>Failed</Tag>
     );
   }
 
   if (status === "complete" && tags) {
     return (
-      <Flex wrap gap={4} style={{ backgroundColor: token.colorFillQuaternary, padding: `${token.paddingXS}px ${token.paddingXS}px` }}>
+      <Space wrap size={[4, 4]}>
         {tags.split(", ").map((tag) => (
-          <Tag key={tag} style={{ margin: 0 }}>{tag}</Tag>
+          <Tag key={tag}>{tag}</Tag>
         ))}
-      </Flex>
+      </Space>
     );
   }
 

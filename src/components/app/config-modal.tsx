@@ -1,4 +1,5 @@
 import {
+  App,
   Button,
   Badge,
   Card,
@@ -6,13 +7,14 @@ import {
   Form,
   Input,
   Modal,
+  Popconfirm,
   Progress,
   Segmented,
+  Space,
   Steps,
   Tooltip,
   Typography,
   Alert,
-  theme,
 } from "antd";
 import {
   CheckCircleOutlined,
@@ -82,7 +84,6 @@ export function ConfigModal({
   onInstallUpdate: () => void;
 }) {
   const { theme: currentTheme, setTheme } = useTheme();
-  const { token } = theme.useToken();
 
   const setupStep = !ollamaStatus.binaryInstalled ? 0 : !ollamaStatus.modelInstalled ? 1 : 2;
 
@@ -97,12 +98,11 @@ export function ConfigModal({
       width={480}
     >
       {showWelcome && (
-        <>
+        <Space direction="vertical" size="middle">
           <Alert
             banner
             message="Welcome to Rune! Your library folder has been set to Documents/Rune. Click Save to continue."
             type="info"
-            style={{ marginBottom: token.margin }}
           />
           <Steps
             size="small"
@@ -112,23 +112,21 @@ export function ConfigModal({
               { title: "Download Model" },
               { title: "Ready" },
             ]}
-            style={{ marginBottom: token.marginLG }}
           />
-        </>
+        </Space>
       )}
 
       <Form layout="vertical">
         <Form.Item label="Library folder">
-          <Flex gap={token.paddingXS}>
+          <Space.Compact block>
             <Input
               value={libraryPath || defaultPath}
               readOnly
-              style={{ flex: 1 }}
             />
             <Tooltip title="Choose folder">
               <Button onClick={onChooseFolder} icon={<FolderOpenOutlined />} />
             </Tooltip>
-          </Flex>
+          </Space.Compact>
         </Form.Item>
 
         <Form.Item label="Ollama Binary">
@@ -176,7 +174,7 @@ export function ConfigModal({
       </Form>
 
       {status && (
-        <Alert message={status} type="error" style={{ marginTop: token.margin }} />
+        <Alert message={status} type="error" />
       )}
     </Modal>
   );
@@ -207,25 +205,25 @@ function OllamaBinarySetup({
   onRestartOllama: () => void;
   onDeleteOllamaBinary: () => void;
 }) {
-  const { token } = theme.useToken();
+  const { modal } = App.useApp();
 
   if (isDownloadingOllama && ollamaProgress) {
     return (
       <Card size="small">
-        <Flex align="center" gap={token.paddingXS}>
+        <Space>
           <LoadingOutlined spin />
-          <Text type="secondary" style={{ fontSize: token.fontSizeSM, whiteSpace: "nowrap" }}>
+          <Text type="secondary">
             {formatBytes(ollamaProgress.downloaded)} / {formatBytes(ollamaProgress.total)}
           </Text>
-          <Progress percent={ollamaProgress.percent} size="small" style={{ flex: 1 }} />
-        </Flex>
+          <Progress percent={ollamaProgress.percent} size="small" />
+        </Space>
       </Card>
     );
   }
 
   if (!status.binaryInstalled) {
     return (
-      <Card size="small" styles={{ body: { borderStyle: "dashed" } }}>
+      <Card size="small">
         <Flex align="center" justify="space-between">
           <Text type="secondary">Not installed</Text>
           <Button onClick={onDownloadOllama} size="small" icon={<DownloadOutlined />}>
@@ -239,11 +237,11 @@ function OllamaBinarySetup({
   return (
     <Card size="small">
       <Flex align="center" justify="space-between">
-        <Flex align="center" gap={token.paddingXS}>
-          <CheckCircleOutlined style={{ color: token.colorSuccess }} />
+        <Space>
+          <CheckCircleOutlined style={{ color: "var(--ant-color-success)" }} />
           {status.serverRunning && <Badge status="processing" text="Running" />}
-        </Flex>
-        <Flex align="center" gap={2}>
+        </Space>
+        <Space size="small">
           <Tooltip title="Restart Ollama">
             <Button
               type="text"
@@ -253,16 +251,33 @@ function OllamaBinarySetup({
               icon={<ReloadOutlined spin={isRestartingOllama} />}
             />
           </Tooltip>
-          <Tooltip title="Delete Ollama">
-            <Button
-              type="text"
-              size="small"
-              onClick={onDeleteOllamaBinary}
-              danger
-              icon={<DeleteOutlined />}
-            />
-          </Tooltip>
-        </Flex>
+          <Popconfirm
+            title="Delete Ollama?"
+            description="This will remove the Ollama binary."
+            okText="Delete"
+            cancelText="Cancel"
+            okButtonProps={{ danger: true }}
+            onConfirm={() => {
+              modal.confirm({
+                title: "Confirm delete",
+                content: "This action cannot be undone.",
+                okText: "Delete",
+                okType: "danger",
+                cancelText: "Cancel",
+                onOk: onDeleteOllamaBinary,
+              });
+            }}
+          >
+            <Tooltip title="Delete Ollama">
+              <Button
+                type="text"
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
+              />
+            </Tooltip>
+          </Popconfirm>
+        </Space>
       </Flex>
     </Card>
   );
@@ -281,11 +296,11 @@ function OllamaModelSetup({
   onDownloadModel: () => void;
   onDeleteOllamaModel: () => void;
 }) {
-  const { token } = theme.useToken();
+  const { modal } = App.useApp();
 
   if (!status.binaryInstalled) {
     return (
-      <Card size="small" style={{ opacity: 0.6 }}>
+      <Card size="small">
         <Text type="secondary">Install Ollama first</Text>
       </Card>
     );
@@ -294,13 +309,13 @@ function OllamaModelSetup({
   if (isDownloadingModel && modelProgress) {
     return (
       <Card size="small">
-        <Flex align="center" gap={token.paddingXS}>
+        <Space>
           <LoadingOutlined spin />
-          <Text type="secondary" style={{ fontSize: token.fontSizeSM, whiteSpace: "nowrap" }}>
+          <Text type="secondary">
             {formatBytes(modelProgress.downloaded)} / {formatBytes(modelProgress.total)}
           </Text>
-          <Progress percent={modelProgress.percent} size="small" style={{ flex: 1 }} />
-        </Flex>
+          <Progress percent={modelProgress.percent} size="small" />
+        </Space>
       </Card>
     );
   }
@@ -321,19 +336,36 @@ function OllamaModelSetup({
   return (
     <Card size="small">
       <Flex align="center" justify="space-between">
-        <Flex align="center" gap={token.paddingXS}>
-          <CheckCircleOutlined style={{ color: token.colorSuccess }} />
+        <Space>
+          <CheckCircleOutlined style={{ color: "var(--ant-color-success)" }} />
           {status.serverRunning && <Badge status="success" text="Ready" />}
-        </Flex>
-        <Tooltip title="Delete model">
-          <Button
-            type="text"
-            size="small"
-            onClick={onDeleteOllamaModel}
-            danger
-            icon={<DeleteOutlined />}
-          />
-        </Tooltip>
+        </Space>
+        <Popconfirm
+          title="Delete model?"
+          description="This will remove the local AI model files."
+          okText="Delete"
+          cancelText="Cancel"
+          okButtonProps={{ danger: true }}
+          onConfirm={() => {
+            modal.confirm({
+              title: "Confirm delete",
+              content: "This action cannot be undone.",
+              okText: "Delete",
+              okType: "danger",
+              cancelText: "Cancel",
+              onOk: onDeleteOllamaModel,
+            });
+          }}
+        >
+          <Tooltip title="Delete model">
+            <Button
+              type="text"
+              size="small"
+              danger
+              icon={<DeleteOutlined />}
+            />
+          </Tooltip>
+        </Popconfirm>
       </Flex>
     </Card>
   );
@@ -350,7 +382,6 @@ function AppUpdateSection({
   onCheckForUpdates: () => void;
   onInstallUpdate: () => void;
 }) {
-  const { token } = theme.useToken();
   const isChecking = updateStatus.state === "checking";
   const isDownloading = updateStatus.state === "downloading";
   const isDownloaded = updateStatus.state === "downloaded";
@@ -361,7 +392,7 @@ function AppUpdateSection({
   return (
     <Card size="small">
       <Flex align="center" justify="space-between">
-        <Flex align="center" gap={token.paddingXS}>
+        <Space>
           <Text type="secondary">v{currentVersion || "..."}</Text>
 
           {isDownloaded && <Badge status="success" text="Update Ready" />}
@@ -369,19 +400,19 @@ function AppUpdateSection({
           {isNotAvailable && <Badge status="default" text="Up to date" />}
           {hasError && (
             <Tooltip title={updateStatus.error}>
-              <Text type="danger" style={{ fontSize: token.fontSizeSM }}>Update check failed</Text>
+              <Text type="danger">Update check failed</Text>
             </Tooltip>
           )}
-        </Flex>
+        </Space>
 
-        <Flex align="center" gap={4}>
+        <Space size="small">
           {(isChecking || isDownloading) && (
-            <Flex align="center" gap={token.paddingXS}>
+            <Space size="small">
               <LoadingOutlined spin />
-              <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+              <Text type="secondary">
                 {isDownloading ? "Downloading..." : "Checking..."}
               </Text>
-            </Flex>
+            </Space>
           )}
 
           {updateStatus.state === "idle" && (
@@ -405,7 +436,7 @@ function AppUpdateSection({
               Restart & Update
             </Button>
           )}
-        </Flex>
+        </Space>
       </Flex>
     </Card>
   );

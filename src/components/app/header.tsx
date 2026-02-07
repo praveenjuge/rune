@@ -1,4 +1,4 @@
-import { Button, Flex, Input, Layout, Tooltip, theme } from "antd";
+import { Button, Input, Layout, Space, Tooltip } from "antd";
 import { LoadingOutlined, PlusOutlined, SettingOutlined } from "@ant-design/icons";
 
 export function Header({
@@ -18,8 +18,6 @@ export function Header({
   onFocusSearch: () => void;
   searchInputRef: React.RefObject<any>;
 }) {
-  const { token } = theme.useToken();
-
   const handleHeaderClick = (event: React.MouseEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement;
     if (target.closest("button")) return;
@@ -28,17 +26,8 @@ export function Header({
   };
 
   return (
-    <Layout.Header
-      style={{
-        height: "auto",
-        lineHeight: "normal",
-        padding: `${token.paddingXS}px ${token.padding}px`,
-        background: token.colorBgContainer,
-        borderBottom: `1px solid ${token.colorBorderSecondary}`,
-      }}
-      onClick={handleHeaderClick}
-    >
-      <Flex flex={1} align="center" gap={token.paddingXS}>
+    <Layout.Header className="header-border" onClick={handleHeaderClick}>
+      <Space.Compact block>
         <Input.Search
           ref={searchInputRef}
           value={search}
@@ -46,7 +35,6 @@ export function Header({
           placeholder="Search"
           aria-label="Search images"
           allowClear
-          style={{ minWidth: 0, flex: 1 }}
         />
         <Tooltip title="Add images">
           <Button
@@ -61,7 +49,7 @@ export function Header({
             icon={<SettingOutlined />}
           />
         </Tooltip>
-      </Flex>
+      </Space.Compact>
     </Layout.Header>
   );
 }
