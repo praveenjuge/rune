@@ -22,8 +22,8 @@ export function ImageGrid({
           {
             key: "retry",
             label: (
-              <span className="flex items-center gap-2">
-                <ReloadOutlined className="h-4 w-4" />
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <ReloadOutlined />
                 Retry AI Tags
               </span>
             ),
@@ -56,15 +56,14 @@ export function ImageGrid({
         items={images}
         itemRender={(image) => (
           <Dropdown menu={{ items: getContextMenuItems(image) }} trigger={["contextMenu"]}>
-            <div className="overflow-hidden rounded-md bg-card">
+            <div style={{ overflow: "hidden", borderRadius: 6, backgroundColor: "var(--rune-card)" }}>
               <Image
                 src={image.url}
                 alt={image.originalName}
                 preview={{
                   mask: "Click to preview",
                 }}
-                className="w-full"
-                style={{ display: "block" }}
+                style={{ width: "100%", display: "block" }}
               />
               <ImageCaption
                 status={image.aiTagStatus}
@@ -90,8 +89,8 @@ function ImageCaption({ status, tags }: ImageCaptionProps) {
 
   if (status === "generating") {
     return (
-      <div className="flex items-center gap-1.5 bg-muted/50 px-2 py-1.5 text-xs text-muted-foreground">
-        <LoadingOutlined className="h-3 w-3 animate-spin" />
+      <div style={{ display: "flex", alignItems: "center", gap: 6, backgroundColor: "color-mix(in srgb, var(--rune-muted) 100%, transparent)", padding: "6px 8px", fontSize: 12, color: "var(--rune-muted-foreground)" }}>
+        <LoadingOutlined spin />
         <span>Generating...</span>
       </div>
     );
@@ -99,8 +98,8 @@ function ImageCaption({ status, tags }: ImageCaptionProps) {
 
   if (status === "failed") {
     return (
-      <div className="flex items-center gap-1.5 bg-destructive/10 px-2 py-1.5 text-xs text-destructive">
-        <WarningOutlined className="h-3 w-3" />
+      <div style={{ display: "flex", alignItems: "center", gap: 6, backgroundColor: "color-mix(in srgb, var(--rune-destructive) 10%, transparent)", padding: "6px 8px", fontSize: 12, color: "var(--rune-destructive)" }}>
+        <WarningOutlined />
         <span>Failed</span>
       </div>
     );
@@ -108,7 +107,7 @@ function ImageCaption({ status, tags }: ImageCaptionProps) {
 
   if (status === "complete" && tags) {
     return (
-      <div className="bg-muted/30 px-2 py-1.5 text-xs text-muted-foreground leading-relaxed">
+      <div style={{ backgroundColor: "color-mix(in srgb, var(--rune-muted) 100%, transparent)", padding: "6px 8px", fontSize: 12, color: "var(--rune-muted-foreground)", lineHeight: 1.6 }}>
         {tags}
       </div>
     );

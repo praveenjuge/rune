@@ -13,7 +13,7 @@ import { useAppState, useSearch } from "./components/app/use-app-state";
 
 export function App() {
   const [search, setSearch] = useState("");
-  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const searchInputRef = useRef<any>(null);
 
   const {
     settings,
@@ -76,7 +76,7 @@ export function App() {
   };
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
+    <div style={{ display: "flex", height: "100vh", flexDirection: "column", overflow: "hidden", backgroundColor: "var(--rune-background)", color: "var(--rune-foreground)" }}>
       <Header
         search={search}
         onSearch={setSearch}
@@ -87,8 +87,8 @@ export function App() {
         searchInputRef={searchInputRef}
       />
 
-      <main className="flex w-full flex-1 flex-col gap-0 overflow-y-auto pb-6">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6">
+      <main style={{ display: "flex", width: "100%", flex: 1, flexDirection: "column", gap: 0, overflowY: "auto", paddingBottom: 24 }}>
+        <div style={{ marginLeft: "auto", marginRight: "auto", display: "flex", width: "100%", maxWidth: "72rem", flexDirection: "column", gap: 16, padding: "0 24px" }}>
           {status ? (
             <Alert message={status} type="error" />
           ) : null}
@@ -111,7 +111,7 @@ export function App() {
                 onDelete={handleDeleteImageWrapper}
                 onRetryTagging={handleRetryTagging}
               />
-              <div ref={sentinelRef} className="h-6" />
+              <div ref={sentinelRef} style={{ height: 24 }} />
               {isLoadingMore ? <LoadingMore /> : null}
             </>
           ) : null}

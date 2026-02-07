@@ -80,33 +80,33 @@ export function ConfigModal({
         <Alert
           message="Welcome to Rune! Your library folder has been set to Documents/Rune. Click Save to continue."
           type="info"
-          className="mb-4"
+          style={{ marginBottom: 16 }}
         />
       )}
 
-      <div className="space-y-5 text-sm">
+      <div style={{ display: "flex", flexDirection: "column", gap: 20, fontSize: 14 }}>
         {/* Library folder */}
-        <div className="space-y-2">
-          <label className="text-xs font-medium text-muted-foreground">
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <label style={{ fontSize: 12, fontWeight: 500, color: "var(--rune-muted-foreground)" }}>
             Library folder
           </label>
-          <div className="flex items-center gap-2">
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <input
               value={libraryPath || defaultPath}
               readOnly
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground"
+              style={{ display: "flex", height: 36, width: "100%", borderRadius: 6, border: "1px solid var(--rune-input)", backgroundColor: "var(--rune-background)", padding: "6px 12px", fontSize: 14, color: "var(--rune-muted-foreground)" }}
             />
             <Button
               onClick={onChooseFolder}
               aria-label="Choose folder"
-              icon={<FolderOpenOutlined className="h-4 w-4" />}
+              icon={<FolderOpenOutlined />}
             />
           </div>
         </div>
 
         {/* Ollama Binary */}
-        <div className="space-y-2">
-          <label className="text-xs font-medium text-muted-foreground">
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <label style={{ fontSize: 12, fontWeight: 500, color: "var(--rune-muted-foreground)" }}>
             Ollama Binary
           </label>
           <OllamaBinarySetup
@@ -121,8 +121,8 @@ export function ConfigModal({
         </div>
 
         {/* AI Model */}
-        <div className="space-y-2">
-          <label className="text-xs font-medium text-muted-foreground">
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <label style={{ fontSize: 12, fontWeight: 500, color: "var(--rune-muted-foreground)" }}>
             AI Model
           </label>
           <OllamaModelSetup
@@ -135,35 +135,35 @@ export function ConfigModal({
         </div>
 
         {/* Appearance */}
-        <div className="space-y-2">
-          <label className="text-xs font-medium text-muted-foreground">
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <label style={{ fontSize: 12, fontWeight: 500, color: "var(--rune-muted-foreground)" }}>
             Theme
           </label>
-          <div className="flex items-center gap-2">
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <Button
               type={theme === "system" ? "primary" : "default"}
               size="small"
               onClick={() => setTheme("system")}
-              icon={<LaptopOutlined className="h-4 w-4" />}
+              icon={<LaptopOutlined />}
             />
             <Button
               type={theme === "light" ? "primary" : "default"}
               size="small"
               onClick={() => setTheme("light")}
-              icon={<SunOutlined className="h-4 w-4" />}
+              icon={<SunOutlined />}
             />
             <Button
               type={theme === "dark" ? "primary" : "default"}
               size="small"
               onClick={() => setTheme("dark")}
-              icon={<MoonOutlined className="h-4 w-4" />}
+              icon={<MoonOutlined />}
             />
           </div>
         </div>
 
         {/* App Updates */}
-        <div className="space-y-2">
-          <label className="text-xs font-medium text-muted-foreground">
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <label style={{ fontSize: 12, fontWeight: 500, color: "var(--rune-muted-foreground)" }}>
             App Updates
           </label>
           <AppUpdateSection
@@ -177,11 +177,11 @@ export function ConfigModal({
 
       {/* Error message */}
       {status && (
-        <Alert message={status} type="error" className="mt-4" />
+        <Alert message={status} type="error" style={{ marginTop: 16 }} />
       )}
 
       {/* Actions */}
-      <div className="flex justify-end gap-2 mt-6">
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 24 }}>
         <Button onClick={onClose}>
           Cancel
         </Button>
@@ -220,13 +220,13 @@ function OllamaBinarySetup({
 
   if (isDownloadingOllama && ollamaProgress) {
     return (
-      <div className="flex items-center justify-between p-2 rounded-md border bg-muted/20">
-        <div className="flex items-center gap-2 flex-1">
-          <LoadingOutlined className="h-4 w-4 animate-spin text-muted-foreground" />
-          <span className="text-xs text-muted-foreground">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 8, borderRadius: 6, border: "1px solid var(--rune-border)", backgroundColor: "color-mix(in srgb, var(--rune-muted) 100%, transparent)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
+          <LoadingOutlined spin style={{ color: "var(--rune-muted-foreground)" }} />
+          <span style={{ fontSize: 12, color: "var(--rune-muted-foreground)" }}>
             {formatBytes(ollamaProgress.downloaded)} / {formatBytes(ollamaProgress.total)}
           </span>
-          <Progress percent={ollamaProgress.percent} size="small" className="flex-1" />
+          <Progress percent={ollamaProgress.percent} size="small" style={{ flex: 1 }} />
         </div>
       </div>
     );
@@ -234,9 +234,9 @@ function OllamaBinarySetup({
 
   if (!status.binaryInstalled) {
     return (
-      <div className="flex items-center justify-between p-2 rounded-md border border-dashed bg-muted/10">
-        <span className="text-sm text-muted-foreground">Not installed</span>
-        <Button onClick={onDownloadOllama} size="small" icon={<DownloadOutlined className="h-4 w-4" />}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 8, borderRadius: 6, border: "1px dashed var(--rune-border)", backgroundColor: "color-mix(in srgb, var(--rune-muted) 100%, transparent)" }}>
+        <span style={{ fontSize: 14, color: "var(--rune-muted-foreground)" }}>Not installed</span>
+        <Button onClick={onDownloadOllama} size="small" icon={<DownloadOutlined />}>
           Download
         </Button>
       </div>
@@ -244,9 +244,9 @@ function OllamaBinarySetup({
   }
 
   return (
-    <div className="flex items-center justify-between p-2 rounded-md border bg-muted/20">
-      <div className="flex items-center gap-2">
-        <CheckCircleOutlined className="h-4 w-4 text-green-500" />
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 8, borderRadius: 6, border: "1px solid var(--rune-border)", backgroundColor: "color-mix(in srgb, var(--rune-muted) 100%, transparent)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <CheckCircleOutlined style={{ color: "var(--rune-green)" }} />
         {status.serverRunning && (
           <Badge
             status="processing"
@@ -254,20 +254,20 @@ function OllamaBinarySetup({
           />
         )}
       </div>
-      <div className="flex items-center gap-0.5">
+      <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
         <Button
           type="text"
           size="small"
           onClick={onRestartOllama}
           disabled={isRestartingOllama}
-          icon={<ReloadOutlined className={`h-3.5 w-3.5 ${isRestartingOllama ? 'animate-spin' : ''}`} />}
+          icon={<ReloadOutlined spin={isRestartingOllama} />}
         />
         <Button
           type="text"
           size="small"
           onClick={onDeleteOllamaBinary}
           danger
-          icon={<DeleteOutlined className="h-3.5 w-3.5" />}
+          icon={<DeleteOutlined />}
         />
       </div>
     </div>
@@ -297,21 +297,21 @@ function OllamaModelSetup({
 
   if (!status.binaryInstalled) {
     return (
-      <div className="flex items-center justify-between p-2 rounded-md border border-dashed bg-muted/10 opacity-60">
-        <span className="text-sm text-muted-foreground">Install Ollama first</span>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 8, borderRadius: 6, border: "1px dashed var(--rune-border)", backgroundColor: "color-mix(in srgb, var(--rune-muted) 100%, transparent)", opacity: 0.6 }}>
+        <span style={{ fontSize: 14, color: "var(--rune-muted-foreground)" }}>Install Ollama first</span>
       </div>
     );
   }
 
   if (isDownloadingModel && modelProgress) {
     return (
-      <div className="flex items-center justify-between p-2 rounded-md border bg-muted/20">
-        <div className="flex items-center gap-2 flex-1">
-          <LoadingOutlined className="h-4 w-4 animate-spin text-muted-foreground" />
-          <span className="text-xs text-muted-foreground">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 8, borderRadius: 6, border: "1px solid var(--rune-border)", backgroundColor: "color-mix(in srgb, var(--rune-muted) 100%, transparent)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
+          <LoadingOutlined spin style={{ color: "var(--rune-muted-foreground)" }} />
+          <span style={{ fontSize: 12, color: "var(--rune-muted-foreground)" }}>
             {formatBytes(modelProgress.downloaded)} / {formatBytes(modelProgress.total)}
           </span>
-          <Progress percent={modelProgress.percent} size="small" className="flex-1" />
+          <Progress percent={modelProgress.percent} size="small" style={{ flex: 1 }} />
         </div>
       </div>
     );
@@ -319,9 +319,9 @@ function OllamaModelSetup({
 
   if (!status.modelInstalled) {
     return (
-      <div className="flex items-center justify-between p-2 rounded-md border bg-muted/20">
-        <span className="text-sm text-muted-foreground">Not installed</span>
-        <Button onClick={onDownloadModel} size="small" icon={<DownloadOutlined className="h-4 w-4" />}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 8, borderRadius: 6, border: "1px solid var(--rune-border)", backgroundColor: "color-mix(in srgb, var(--rune-muted) 100%, transparent)" }}>
+        <span style={{ fontSize: 14, color: "var(--rune-muted-foreground)" }}>Not installed</span>
+        <Button onClick={onDownloadModel} size="small" icon={<DownloadOutlined />}>
           Download
         </Button>
       </div>
@@ -329,9 +329,9 @@ function OllamaModelSetup({
   }
 
   return (
-    <div className="flex items-center justify-between p-2 rounded-md border bg-muted/20">
-      <div className="flex items-center gap-2">
-        <CheckCircleOutlined className="h-4 w-4 text-green-500" />
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 8, borderRadius: 6, border: "1px solid var(--rune-border)", backgroundColor: "color-mix(in srgb, var(--rune-muted) 100%, transparent)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <CheckCircleOutlined style={{ color: "var(--rune-green)" }} />
         {status.serverRunning && (
           <Badge
             status="success"
@@ -344,7 +344,7 @@ function OllamaModelSetup({
         size="small"
         onClick={onDeleteOllamaModel}
         danger
-        icon={<DeleteOutlined className="h-3.5 w-3.5" />}
+        icon={<DeleteOutlined />}
       />
     </div>
   );
@@ -369,9 +369,9 @@ function AppUpdateSection({
   const isNotAvailable = updateStatus.state === "not-available";
 
   return (
-    <div className="flex items-center justify-between p-2 rounded-md border bg-muted/20">
-      <div className="flex items-center gap-2">
-        <span className="text-sm text-muted-foreground">
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 8, borderRadius: 6, border: "1px solid var(--rune-border)", backgroundColor: "color-mix(in srgb, var(--rune-muted) 100%, transparent)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 14, color: "var(--rune-muted-foreground)" }}>
           v{currentVersion || "..."}
         </span>
 
@@ -388,16 +388,16 @@ function AppUpdateSection({
         )}
 
         {hasError && (
-          <span className="text-xs text-destructive" title={updateStatus.error}>
+          <span style={{ fontSize: 12, color: "var(--rune-destructive)" }} title={updateStatus.error}>
             Update check failed
           </span>
         )}
       </div>
 
-      <div className="flex items-center gap-1">
+      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
         {(isChecking || isDownloading) && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <LoadingOutlined className="h-4 w-4 animate-spin" />
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--rune-muted-foreground)" }}>
+            <LoadingOutlined spin />
             <span>{isDownloading ? "Downloading..." : "Checking..."}</span>
           </div>
         )}
@@ -406,7 +406,7 @@ function AppUpdateSection({
           <Button
             size="small"
             onClick={onCheckForUpdates}
-            icon={<ReloadOutlined className="h-3.5 w-3.5" />}
+            icon={<ReloadOutlined />}
           >
             Check
           </Button>
@@ -417,7 +417,7 @@ function AppUpdateSection({
             type="text"
             size="small"
             onClick={onCheckForUpdates}
-            icon={<ReloadOutlined className="h-3.5 w-3.5" />}
+            icon={<ReloadOutlined />}
           />
         )}
 
@@ -435,7 +435,7 @@ function AppUpdateSection({
             type="primary"
             size="small"
             onClick={onInstallUpdate}
-            icon={<ReloadOutlined className="h-3.5 w-3.5" />}
+            icon={<ReloadOutlined />}
           >
             Restart & Update
           </Button>
