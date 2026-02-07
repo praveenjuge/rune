@@ -3,12 +3,9 @@ import { defineConfig } from 'vite';
 
 // https://vitejs.dev/config
 export default defineConfig(async () => {
-  const [react, tailwindcss] = await Promise.all([
-    import('@vitejs/plugin-react'),
-    import('@tailwindcss/vite'),
-  ]);
+  const react = await import('@vitejs/plugin-react');
   return {
-    plugins: [tailwindcss.default(), react.default()],
+    plugins: [react.default()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, 'src'),

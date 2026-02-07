@@ -1,5 +1,5 @@
-import { Loader2, Plus, Search, Settings } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "antd";
+import { LoadingOutlined, PlusOutlined, SearchOutlined, SettingOutlined } from "@ant-design/icons";
 
 const searchInputClassName =
   "h-10 w-full rounded-md border-0 bg-transparent pr-2 pl-8 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0";
@@ -62,7 +62,7 @@ function HeaderActions({
   return (
     <div className="flex flex-1 items-center gap-2">
       <div className="relative flex min-w-0 flex-1 items-center">
-        <Search className="pointer-events-none absolute left-2 h-4 w-4 text-muted-foreground" />
+        <SearchOutlined className="pointer-events-none absolute left-2 h-4 w-4 text-muted-foreground" />
         <input
           ref={searchInputRef}
           value={search}
@@ -76,24 +76,13 @@ function HeaderActions({
         onClick={onAdd}
         disabled={isImporting}
         className="shrink-0"
-        size="icon"
-        aria-label="Add images"
-      >
-        {isImporting ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <Plus className="h-4 w-4" />
-        )}
-      </Button>
+        icon={isImporting ? <LoadingOutlined className="h-4 w-4 animate-spin" /> : <PlusOutlined className="h-4 w-4" />}
+      />
       <Button
-        variant="outline"
         onClick={onOpenSettings}
         className="shrink-0"
-        size="icon"
-        aria-label="Library settings"
-      >
-        <Settings className="h-4 w-4" />
-      </Button>
+        icon={<SettingOutlined className="h-4 w-4" />}
+      />
     </div>
   );
 }

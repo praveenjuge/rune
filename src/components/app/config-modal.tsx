@@ -1,23 +1,16 @@
+import { Button, Badge, Progress, Modal, Alert } from "antd";
 import {
-  Check,
-  Download,
-  FolderOpen,
-  Laptop,
-  Loader2,
-  Moon,
-  RefreshCw,
-  Sun,
-  Trash2,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+  CheckCircleOutlined,
+  DownloadOutlined,
+  FolderOpenOutlined,
+  LaptopOutlined,
+  LoadingOutlined,
+  MoonOutlined,
+  ReloadOutlined,
+  SunOutlined,
+  DeleteOutlined,
+} from "@ant-design/icons";
 import { useTheme } from "@/components/theme-provider";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-} from "@/components/ui/dialog";
 import { OLLAMA_MODEL } from "@/shared/library";
 import type { DownloadProgress, OllamaStatus, UpdateStatus } from "@/shared/library";
 
@@ -75,144 +68,128 @@ export function ConfigModal({
   const { theme, setTheme } = useTheme();
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md">
-        {/* Welcome alert - shown inside modal on first time */}
-        {showWelcome && (
-          <div className="rounded-md border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-700 dark:text-blue-400">
-            Welcome to Rune! Your library folder has been set to Documents/Rune. Click Save to continue.
-          </div>
-        )}
+    <Modal
+      open={isOpen}
+      onCancel={onClose}
+      title="Settings"
+      footer={null}
+      width={480}
+    >
+      {/* Welcome alert - shown inside modal on first time */}
+      {showWelcome && (
+        <Alert
+          message="Welcome to Rune! Your library folder has been set to Documents/Rune. Click Save to continue."
+          type="info"
+          className="mb-4"
+        />
+      )}
 
-        <DialogHeader>
-          <h2 className="text-lg font-semibold">Settings</h2>
-        </DialogHeader>
-
-        <div className="space-y-5 text-sm">
-          {/* Library folder */}
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground">
-              Library folder
-            </label>
-            <div className="flex items-center gap-2">
-              <input
-                value={libraryPath || defaultPath}
-                readOnly
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground"
-              />
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={onChooseFolder}
-                aria-label="Choose folder"
-              >
-                <FolderOpen className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Ollama Binary */}
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground">
-              Ollama Binary
-            </label>
-            <OllamaBinarySetup
-              status={ollamaStatus}
-              ollamaProgress={ollamaProgress}
-              isDownloadingOllama={isDownloadingOllama}
-              isRestartingOllama={isRestartingOllama}
-              onDownloadOllama={onDownloadOllama}
-              onRestartOllama={onRestartOllama}
-              onDeleteOllamaBinary={onDeleteOllamaBinary}
+      <div className="space-y-5 text-sm">
+        {/* Library folder */}
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-muted-foreground">
+            Library folder
+          </label>
+          <div className="flex items-center gap-2">
+            <input
+              value={libraryPath || defaultPath}
+              readOnly
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground"
             />
-          </div>
-
-          {/* AI Model */}
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground">
-              AI Model
-            </label>
-            <OllamaModelSetup
-              status={ollamaStatus}
-              modelProgress={modelProgress}
-              isDownloadingModel={isDownloadingModel}
-              onDownloadModel={onDownloadModel}
-              onDeleteOllamaModel={onDeleteOllamaModel}
-            />
-          </div>
-
-          {/* Appearance */}
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground">
-              Theme
-            </label>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant={theme === "system" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setTheme("system")}
-              >
-                <Laptop className="h-4 w-4" />
-              </Button>
-              <Button
-                type="button"
-                variant={theme === "light" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setTheme("light")}
-              >
-                <Sun className="h-4 w-4" />
-              </Button>
-              <Button
-                type="button"
-                variant={theme === "dark" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setTheme("dark")}
-              >
-                <Moon className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
-          {/* App Updates */}
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground">
-              App Updates
-            </label>
-            <AppUpdateSection
-              updateStatus={updateStatus}
-              currentVersion={currentVersion}
-              onCheckForUpdates={onCheckForUpdates}
-              onInstallUpdate={onInstallUpdate}
+            <Button
+              onClick={onChooseFolder}
+              aria-label="Choose folder"
+              icon={<FolderOpenOutlined className="h-4 w-4" />}
             />
           </div>
         </div>
 
-        {/* Error message */}
-        {status && (
-          <div className="mt-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            {status}
-          </div>
-        )}
-
-        {/* Actions */}
-        <div className="flex justify-end gap-2 mt-6">
-          <Button variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={onSave} disabled={isSaving}>
-            {isSaving ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Saving
-              </>
-            ) : (
-              "Save"
-            )}
-          </Button>
+        {/* Ollama Binary */}
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-muted-foreground">
+            Ollama Binary
+          </label>
+          <OllamaBinarySetup
+            status={ollamaStatus}
+            ollamaProgress={ollamaProgress}
+            isDownloadingOllama={isDownloadingOllama}
+            isRestartingOllama={isRestartingOllama}
+            onDownloadOllama={onDownloadOllama}
+            onRestartOllama={onRestartOllama}
+            onDeleteOllamaBinary={onDeleteOllamaBinary}
+          />
         </div>
-      </DialogContent>
-    </Dialog>
+
+        {/* AI Model */}
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-muted-foreground">
+            AI Model
+          </label>
+          <OllamaModelSetup
+            status={ollamaStatus}
+            modelProgress={modelProgress}
+            isDownloadingModel={isDownloadingModel}
+            onDownloadModel={onDownloadModel}
+            onDeleteOllamaModel={onDeleteOllamaModel}
+          />
+        </div>
+
+        {/* Appearance */}
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-muted-foreground">
+            Theme
+          </label>
+          <div className="flex items-center gap-2">
+            <Button
+              type={theme === "system" ? "primary" : "default"}
+              size="small"
+              onClick={() => setTheme("system")}
+              icon={<LaptopOutlined className="h-4 w-4" />}
+            />
+            <Button
+              type={theme === "light" ? "primary" : "default"}
+              size="small"
+              onClick={() => setTheme("light")}
+              icon={<SunOutlined className="h-4 w-4" />}
+            />
+            <Button
+              type={theme === "dark" ? "primary" : "default"}
+              size="small"
+              onClick={() => setTheme("dark")}
+              icon={<MoonOutlined className="h-4 w-4" />}
+            />
+          </div>
+        </div>
+
+        {/* App Updates */}
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-muted-foreground">
+            App Updates
+          </label>
+          <AppUpdateSection
+            updateStatus={updateStatus}
+            currentVersion={currentVersion}
+            onCheckForUpdates={onCheckForUpdates}
+            onInstallUpdate={onInstallUpdate}
+          />
+        </div>
+      </div>
+
+      {/* Error message */}
+      {status && (
+        <Alert message={status} type="error" className="mt-4" />
+      )}
+
+      {/* Actions */}
+      <div className="flex justify-end gap-2 mt-6">
+        <Button onClick={onClose}>
+          Cancel
+        </Button>
+        <Button type="primary" onClick={onSave} loading={isSaving}>
+          Save
+        </Button>
+      </div>
+    </Modal>
   );
 }
 
@@ -245,11 +222,11 @@ function OllamaBinarySetup({
     return (
       <div className="flex items-center justify-between p-2 rounded-md border bg-muted/20">
         <div className="flex items-center gap-2 flex-1">
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          <LoadingOutlined className="h-4 w-4 animate-spin text-muted-foreground" />
           <span className="text-xs text-muted-foreground">
             {formatBytes(ollamaProgress.downloaded)} / {formatBytes(ollamaProgress.total)}
           </span>
-          <Progress value={ollamaProgress.percent} className="flex-1 h-1.5" />
+          <Progress percent={ollamaProgress.percent} size="small" className="flex-1" />
         </div>
       </div>
     );
@@ -259,8 +236,7 @@ function OllamaBinarySetup({
     return (
       <div className="flex items-center justify-between p-2 rounded-md border border-dashed bg-muted/10">
         <span className="text-sm text-muted-foreground">Not installed</span>
-        <Button onClick={onDownloadOllama} size="sm" variant="outline">
-          <Download className="h-4 w-4 mr-1.5" />
+        <Button onClick={onDownloadOllama} size="small" icon={<DownloadOutlined className="h-4 w-4" />}>
           Download
         </Button>
       </div>
@@ -270,37 +246,29 @@ function OllamaBinarySetup({
   return (
     <div className="flex items-center justify-between p-2 rounded-md border bg-muted/20">
       <div className="flex items-center gap-2">
-        <Check className="h-4 w-4 text-green-500" />
+        <CheckCircleOutlined className="h-4 w-4 text-green-500" />
         {status.serverRunning && (
-          <Badge variant="outline" className="h-5 px-1.5 text-xs gap-1 border-green-500/30 text-green-700 dark:text-green-400">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75" />
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500" />
-            </span>
-            Running
-          </Badge>
+          <Badge
+            status="processing"
+            text="Running"
+          />
         )}
       </div>
       <div className="flex items-center gap-0.5">
         <Button
-          variant="ghost"
-          size="sm"
+          type="text"
+          size="small"
           onClick={onRestartOllama}
           disabled={isRestartingOllama}
-          className="h-7 px-2"
-          title="Restart"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${isRestartingOllama ? 'animate-spin' : ''}`} />
-        </Button>
+          icon={<ReloadOutlined className={`h-3.5 w-3.5 ${isRestartingOllama ? 'animate-spin' : ''}`} />}
+        />
         <Button
-          variant="ghost"
-          size="sm"
+          type="text"
+          size="small"
           onClick={onDeleteOllamaBinary}
-          className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-          title="Delete"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
+          danger
+          icon={<DeleteOutlined className="h-3.5 w-3.5" />}
+        />
       </div>
     </div>
   );
@@ -339,11 +307,11 @@ function OllamaModelSetup({
     return (
       <div className="flex items-center justify-between p-2 rounded-md border bg-muted/20">
         <div className="flex items-center gap-2 flex-1">
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          <LoadingOutlined className="h-4 w-4 animate-spin text-muted-foreground" />
           <span className="text-xs text-muted-foreground">
             {formatBytes(modelProgress.downloaded)} / {formatBytes(modelProgress.total)}
           </span>
-          <Progress value={modelProgress.percent} className="flex-1 h-1.5" />
+          <Progress percent={modelProgress.percent} size="small" className="flex-1" />
         </div>
       </div>
     );
@@ -353,8 +321,7 @@ function OllamaModelSetup({
     return (
       <div className="flex items-center justify-between p-2 rounded-md border bg-muted/20">
         <span className="text-sm text-muted-foreground">Not installed</span>
-        <Button onClick={onDownloadModel} size="sm" variant="outline">
-          <Download className="h-4 w-4 mr-1.5" />
+        <Button onClick={onDownloadModel} size="small" icon={<DownloadOutlined className="h-4 w-4" />}>
           Download
         </Button>
       </div>
@@ -364,26 +331,21 @@ function OllamaModelSetup({
   return (
     <div className="flex items-center justify-between p-2 rounded-md border bg-muted/20">
       <div className="flex items-center gap-2">
-        <Check className="h-4 w-4 text-green-500" />
+        <CheckCircleOutlined className="h-4 w-4 text-green-500" />
         {status.serverRunning && (
-          <Badge variant="outline" className="h-5 px-1.5 text-xs gap-1 border-green-500/30 text-green-700 dark:text-green-400">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75" />
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500" />
-            </span>
-            Ready
-          </Badge>
+          <Badge
+            status="success"
+            text="Ready"
+          />
         )}
       </div>
       <Button
-        variant="ghost"
-        size="sm"
+        type="text"
+        size="small"
         onClick={onDeleteOllamaModel}
-        className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-        title="Delete"
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-      </Button>
+        danger
+        icon={<DeleteOutlined className="h-3.5 w-3.5" />}
+      />
     </div>
   );
 }
@@ -414,21 +376,15 @@ function AppUpdateSection({
         </span>
 
         {isDownloaded && (
-          <Badge className="bg-green-500 text-white hover:bg-green-500">
-            Update Ready
-          </Badge>
+          <Badge status="success" text="Update Ready" />
         )}
 
         {isAvailable && (
-          <Badge className="bg-blue-500 text-white hover:bg-blue-500">
-            Update Available
-          </Badge>
+          <Badge status="processing" text="Update Available" />
         )}
 
         {isNotAvailable && (
-          <Badge variant="outline" className="text-xs">
-            Up to date
-          </Badge>
+          <Badge status="default" text="Up to date" />
         )}
 
         {hasError && (
@@ -441,40 +397,34 @@ function AppUpdateSection({
       <div className="flex items-center gap-1">
         {(isChecking || isDownloading) && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <LoadingOutlined className="h-4 w-4 animate-spin" />
             <span>{isDownloading ? "Downloading..." : "Checking..."}</span>
           </div>
         )}
 
         {updateStatus.state === "idle" && (
           <Button
-            variant="outline"
-            size="sm"
+            size="small"
             onClick={onCheckForUpdates}
-            className="h-7 px-2"
+            icon={<ReloadOutlined className="h-3.5 w-3.5" />}
           >
-            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
             Check
           </Button>
         )}
 
         {isNotAvailable && (
           <Button
-            variant="ghost"
-            size="sm"
+            type="text"
+            size="small"
             onClick={onCheckForUpdates}
-            className="h-7 px-2"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-          </Button>
+            icon={<ReloadOutlined className="h-3.5 w-3.5" />}
+          />
         )}
 
         {hasError && (
           <Button
-            variant="outline"
-            size="sm"
+            size="small"
             onClick={onCheckForUpdates}
-            className="h-7 px-2"
           >
             Retry
           </Button>
@@ -482,11 +432,11 @@ function AppUpdateSection({
 
         {isDownloaded && (
           <Button
-            size="sm"
+            type="primary"
+            size="small"
             onClick={onInstallUpdate}
-            className="h-7 px-2"
+            icon={<ReloadOutlined className="h-3.5 w-3.5" />}
           >
-            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
             Restart & Update
           </Button>
         )}

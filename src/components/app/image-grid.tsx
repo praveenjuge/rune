@@ -1,12 +1,9 @@
-import { AlertCircle, Loader2, RefreshCw } from "lucide-react";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-  ContextMenuSeparator,
-} from "@/components/ui/context-menu";
+import { Image, Masonry, Dropdown } from "antd";
+import { WarningOutlined, LoadingOutlined, ReloadOutlined } from "@ant-design/icons";
+import type { MenuProps } from "antd";
 import type { AiTagStatus, LibraryImage } from "@/shared/library";
+
+const { PreviewGroup } = Image;
 
 export function ImageGrid({
   images,
@@ -19,45 +16,65 @@ export function ImageGrid({
   onDelete: (id: string) => void;
   onRetryTagging: (id: string) => void;
 }) {
+  const getContextMenuItems = (image: LibraryImage): MenuProps["items"] => [
+    ...(image.aiTagStatus === "failed"
+      ? [
+          {
+            key: "retry",
+            label: (
+              <span className="flex items-center gap-2">
+                <ReloadOutlined className="h-4 w-4" />
+                Retry AI Tags
+              </span>
+            ),
+            onClick: () => onRetryTagging(image.id),
+          },
+          { type: "divider" as const },
+        ]
+      : []),
+    {
+      key: "delete",
+      label: deletingId === image.id ? "Deleting…" : "Delete",
+      danger: true,
+      disabled: deletingId === image.id,
+      onClick: () => onDelete(image.id),
+    },
+  ];
+
   return (
-    <div className="w-full columns-1 gap-1 sm:columns-3 lg:columns-4 xl:columns-6">
-      {images.map((image) => (
-        <ContextMenu key={image.id}>
-          <ContextMenuTrigger asChild>
-            <div className="mb-1 break-inside-avoid overflow-hidden">
-              <img
+    <PreviewGroup>
+      <Masonry
+        columns={{
+          xs: 1,
+          sm: 2,
+          md: 3,
+          lg: 4,
+          xl: 5,
+          xxl: 6,
+        }}
+        gutter={4}
+        items={images}
+        itemRender={(image) => (
+          <Dropdown menu={{ items: getContextMenuItems(image) }} trigger={["contextMenu"]}>
+            <div className="overflow-hidden rounded-md bg-card">
+              <Image
                 src={image.url}
                 alt={image.originalName}
-                loading="lazy"
-                className="block h-auto w-full object-cover"
+                preview={{
+                  mask: "Click to preview",
+                }}
+                className="w-full"
+                style={{ display: "block" }}
               />
               <ImageCaption
                 status={image.aiTagStatus}
                 tags={image.aiTags}
               />
             </div>
-          </ContextMenuTrigger>
-          <ContextMenuContent>
-            {image.aiTagStatus === "failed" && (
-              <>
-                <ContextMenuItem onClick={() => onRetryTagging(image.id)}>
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Retry AI Tags
-                </ContextMenuItem>
-                <ContextMenuSeparator />
-              </>
-            )}
-            <ContextMenuItem
-              onClick={() => onDelete(image.id)}
-              disabled={deletingId === image.id}
-              className="text-destructive focus:text-destructive"
-            >
-              {deletingId === image.id ? "Deleting…" : "Delete"}
-            </ContextMenuItem>
-          </ContextMenuContent>
-        </ContextMenu>
-      ))}
-    </div>
+          </Dropdown>
+        )}
+      />
+    </PreviewGroup>
   );
 }
 
@@ -74,7 +91,7 @@ function ImageCaption({ status, tags }: ImageCaptionProps) {
   if (status === "generating") {
     return (
       <div className="flex items-center gap-1.5 bg-muted/50 px-2 py-1.5 text-xs text-muted-foreground">
-        <Loader2 className="h-3 w-3 animate-spin" />
+        <LoadingOutlined className="h-3 w-3 animate-spin" />
         <span>Generating...</span>
       </div>
     );
@@ -83,7 +100,7 @@ function ImageCaption({ status, tags }: ImageCaptionProps) {
   if (status === "failed") {
     return (
       <div className="flex items-center gap-1.5 bg-destructive/10 px-2 py-1.5 text-xs text-destructive">
-        <AlertCircle className="h-3 w-3" />
+        <WarningOutlined className="h-3 w-3" />
         <span>Failed</span>
       </div>
     );

@@ -13,7 +13,7 @@ import {
 
 const DB_DIRNAME = '.rune';
 const DB_FILENAME = 'library.sqlite';
-const DB_SCHEMA_VERSION = 3;
+const DB_SCHEMA_VERSION = 4;
 const MAX_PAGE_SIZE = 500;
 
 type DbImageRow = Omit<LibraryImage, 'url'>;
@@ -193,6 +193,33 @@ const migrateSchema = (db: DatabaseSync, fromVersion: number) => {
 
     db.exec(`PRAGMA user_version = 3`);
     console.info('[rune] Migration to version 3 complete.');
+  }
+
+  if (fromVersion < 4) {
+    // Migration from version 3 to 4: Fix settings table schema
+    console.info('[rune] Migrating database to version 4 (fix settings schema)...');
+
+    // Check if settings table has any extra columns and recreate if needed
+    const tableInfo = db.prepare('PRAGMA table_info(settings)').all() as Array<{ name: string }>;
+    const hasExtraColumns = tableInfo.some(col =>
+      col.name !== 'id' && col.name !== 'created_at' && col.name !== 'updated_at'
+    );
+
+    if (hasExtraColumns) {
+      console.info('[rune] Recreating settings table with correct schema...');
+      db.exec('DROP TABLE IF EXISTS settings;');
+    }
+
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS settings (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `);
+
+    db.exec(`PRAGMA user_version = 4`);
+    console.info('[rune] Migration to version 4 complete.');
   }
 };
 

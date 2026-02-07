@@ -1,11 +1,10 @@
 import { app } from 'electron';
 import { spawn, ChildProcess, execSync } from 'node:child_process';
 import fs from 'node:fs/promises';
-import fss from 'node:fs';
+import fss, { constants as fsConstants } from 'node:fs';
 import path from 'node:path';
 import https from 'node:https';
 import http from 'node:http';
-import { constants as fsConstants } from 'node:fs';
 import { EventEmitter } from 'node:events';
 import {
   type OllamaStatus,

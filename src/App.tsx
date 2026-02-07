@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { Alert } from "antd";
 import { ConfigModal } from "./components/app/config-modal";
 import {
   EmptySearchState,
@@ -89,9 +90,7 @@ export function App() {
       <main className="flex w-full flex-1 flex-col gap-0 overflow-y-auto pb-6">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6">
           {status ? (
-            <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {status}
-            </div>
+            <Alert message={status} type="error" />
           ) : null}
 
           {isBootstrapping || (isSearching && images.length === 0) ? (
@@ -103,20 +102,20 @@ export function App() {
               <EmptyState />
             )
           ) : null}
-        </div>
 
-        {!isBootstrapping && images.length > 0 ? (
-          <>
-            <ImageGrid
-              images={images}
-              deletingId={deletingId}
-              onDelete={handleDeleteImageWrapper}
-              onRetryTagging={handleRetryTagging}
-            />
-            <div ref={sentinelRef} className="h-6" />
-            {isLoadingMore ? <LoadingMore /> : null}
-          </>
-        ) : null}
+          {!isBootstrapping && images.length > 0 ? (
+            <>
+              <ImageGrid
+                images={images}
+                deletingId={deletingId}
+                onDelete={handleDeleteImageWrapper}
+                onRetryTagging={handleRetryTagging}
+              />
+              <div ref={sentinelRef} className="h-6" />
+              {isLoadingMore ? <LoadingMore /> : null}
+            </>
+          ) : null}
+        </div>
       </main>
 
       {isConfigOpen ? (

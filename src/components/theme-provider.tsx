@@ -5,6 +5,7 @@ import {
   useEffect,
   useState,
 } from "react";
+import { ConfigProvider, theme } from "antd";
 
 type Theme = "dark" | "light" | "system";
 
@@ -26,6 +27,25 @@ const initialState: ThemeProviderState = {
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
 
+const LIGHT_THEME = {
+  token: {
+    colorBgBase: "#ffffff",
+    colorText: "rgba(0, 0, 0, 0.9)",
+    colorBorder: "#d9d9d9",
+    borderRadius: 6,
+  },
+};
+
+const DARK_THEME = {
+  algorithm: theme.darkAlgorithm,
+  token: {
+    colorBgBase: "#141414",
+    colorText: "rgba(255, 255, 255, 0.85)",
+    colorBorder: "#424242",
+    borderRadius: 6,
+  },
+};
+
 export function ThemeProvider({
   children,
   defaultTheme = "system",
@@ -35,6 +55,7 @@ export function ThemeProvider({
   const [theme, setThemeState] = useState<Theme>(
     () => (localStorage.getItem(storageKey) as Theme) || defaultTheme,
   );
+  const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -43,12 +64,11 @@ export function ThemeProvider({
     const applyTheme = () => {
       root.classList.remove("light", "dark");
 
-      if (theme === "system") {
-        root.classList.add(media.matches ? "dark" : "light");
-        return;
-      }
+      const shouldBeDark =
+        theme === "system" ? media.matches : theme === "dark";
 
-      root.classList.add(theme);
+      root.classList.add(shouldBeDark ? "dark" : "light");
+      setIsDark(shouldBeDark);
     };
 
     applyTheme();
@@ -71,7 +91,9 @@ export function ThemeProvider({
 
   return (
     <ThemeProviderContext.Provider {...props} value={value}>
-      {children}
+      <ConfigProvider theme={isDark ? DARK_THEME : LIGHT_THEME}>
+        {children}
+      </ConfigProvider>
     </ThemeProviderContext.Provider>
   );
 }

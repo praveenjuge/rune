@@ -52,8 +52,9 @@ export function useAppState() {
     nextSettings: LibrarySettings | null,
     defaultPath: string,
   ) => {
-    const nextPath = nextSettings?.libraryPath ?? defaultPath;
-    setLibraryPath(nextPath);
+    // Initialize libraryPath if not already set
+    // libraryPath is managed in state and selected via file dialog
+    setLibraryPath((current) => current || defaultPath);
   };
 
   const handleBootstrap = async () => {
