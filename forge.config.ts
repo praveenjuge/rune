@@ -10,6 +10,7 @@ const config: ForgeConfig = {
   packagerConfig: {
     executableName: 'rune',
     asar: true,
+    icon: 'assets/icon/rune.icns',
   },
   rebuildConfig: {},
   makers: [

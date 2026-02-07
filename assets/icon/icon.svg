@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title>Rune App Icon</title>
+  <desc>Rounded squircle with a subtle gradient and a centered white R monogram.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2f6bff" />
+      <stop offset="100%" stop-color="#4bb4ff" />
+    </linearGradient>
+    <radialGradient id="highlight" cx="30%" cy="25%" r="60%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.2" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <rect x="96" y="96" width="832" height="832" rx="192" ry="192" fill="url(#bg)" />
+  <rect x="96" y="96" width="832" height="832" rx="192" ry="192" fill="url(#highlight)" />
+  <path
+    d="M378 282h214c96 0 154 58 154 146 0 76-42 128-112 142l130 172c8 12 12 24 12 38 0 34-28 62-62 62-22 0-40-10-56-32l-150-206h-74v176c0 38-28 66-66 66s-66-28-66-66V348c0-38 28-66 66-66zm214 220c44 0 70-26 70-66 0-40-26-66-70-66H444v132h148z"
+    fill="#ffffff"
+  />
+</svg>
