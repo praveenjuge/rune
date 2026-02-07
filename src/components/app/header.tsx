@@ -1,5 +1,9 @@
 import { Button, Input, Layout, Space, Tooltip } from "antd";
-import { LoadingOutlined, PlusOutlined, SettingOutlined } from "@ant-design/icons";
+import {
+  LoadingOutlined,
+  PlusOutlined,
+  SettingOutlined,
+} from "@ant-design/icons";
 
 export function Header({
   search,
@@ -44,10 +48,7 @@ export function Header({
           />
         </Tooltip>
         <Tooltip title="Settings">
-          <Button
-            onClick={onOpenSettings}
-            icon={<SettingOutlined />}
-          />
+          <Button onClick={onOpenSettings} icon={<SettingOutlined />} />
         </Tooltip>
       </Space.Compact>
     </Layout.Header>

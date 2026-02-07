@@ -89,7 +89,7 @@ function AppContent() {
   };
 
   return (
-    <>
+    <Layout>
       <Header
         search={search}
         onSearch={setSearch}
@@ -158,7 +158,7 @@ function AppContent() {
           onInstallUpdate={handleInstallUpdate}
         />
       ) : null}
-    </>
+    </Layout>
   );
 }
 
