@@ -68,16 +68,6 @@ const createWindow = () => {
     width: 800,
     height: 600,
     title: 'Rune',
-    titleBarStyle: isMac ? 'default' : 'hidden',
-    titleBarOverlay: isWindows
-      ? {
-          color: '#ffffff',
-          symbolColor: '#000000',
-          height: 40,
-        }
-      : undefined,
-    backgroundColor: '#ffffff',
-    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -257,12 +247,12 @@ const importImages = async (
 
   try {
     await insertImages(libraryPath, imported);
-    
+
     // Enqueue new images for tagging
     if (imported.length > 0) {
       taggingQueue.enqueueNewImages(imported.map((img) => img.id));
     }
-    
+
     return success(imported);
   } catch (error) {
     return failure('Unable to save images.');
@@ -561,10 +551,10 @@ app.on('window-all-closed', () => {
 app.on('before-quit', async () => {
   // Pause tagging queue
   taggingQueue.pause();
-  
+
   // Stop Ollama server
   await ollamaManager.stopServer();
-  
+
   // Close all database connections
   closeAllDatabases();
 });
