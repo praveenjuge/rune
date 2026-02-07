@@ -2,7 +2,6 @@ import { app, BrowserWindow, dialog, ipcMain, protocol } from 'electron';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import started from 'electron-squirrel-startup';
 import {
   IMAGE_EXTENSIONS,
   IPC_CHANNELS,
@@ -40,11 +39,6 @@ import {
   getUpdateStatus,
   getCurrentVersion,
 } from './main/updater';
-
-// Handle creating/removing shortcuts on Windows when installing/uninstalling.
-if (started) {
-  app.quit();
-}
 
 app.setName('Rune');
 

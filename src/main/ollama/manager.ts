@@ -55,28 +55,20 @@ class OllamaManager extends EventEmitter {
   }
 
   async initialize(): Promise<void> {
-    console.info('[ollama] Initializing OllamaManager...');
-    console.info('[ollama] Ollama directory:', this.ollamaDir);
-    console.info('[ollama] Binary path:', this.binaryPath);
     await fs.mkdir(this.ollamaDir, { recursive: true });
     await this.checkStatus();
-    console.info('[ollama] Initialization complete, status:', this.currentStatus);
   }
 
   async checkStatus(): Promise<OllamaStatus> {
-    console.info('[ollama] Checking status...');
     const binaryInstalled = await this.isBinaryInstalled();
-    console.info('[ollama] Binary installed:', binaryInstalled);
-    
+
     let modelInstalled = false;
     let serverRunning = false;
 
     if (binaryInstalled) {
       serverRunning = await this.isServerRunning();
-      console.info('[ollama] Server running:', serverRunning);
       if (serverRunning) {
         modelInstalled = await this.isModelInstalled();
-        console.info('[ollama] Model installed:', modelInstalled);
       }
     }
 
@@ -154,24 +146,15 @@ class OllamaManager extends EventEmitter {
     const platform = process.platform as keyof typeof OLLAMA_RELEASES;
     const arch = process.arch as 'x64' | 'arm64';
 
-    console.info('[ollama] Download binary starting...');
-    console.info('[ollama] Platform:', platform, 'Arch:', arch);
-
     const platformUrls = OLLAMA_RELEASES[platform];
     if (!platformUrls) {
-      console.error('[ollama] Unsupported platform:', platform);
       throw new Error(`Unsupported platform: ${platform}`);
     }
 
     const url = platformUrls[arch];
     if (!url) {
-      console.error('[ollama] Unsupported architecture:', arch);
       throw new Error(`Unsupported architecture: ${arch}`);
     }
-
-    console.info('[ollama] Download URL:', url);
-    console.info('[ollama] Ollama directory:', this.ollamaDir);
-    console.info('[ollama] Binary path:', this.binaryPath);
 
     this.isDownloadingBinary = true;
     this.currentStatus.status = 'downloading-binary';
@@ -182,11 +165,9 @@ class OllamaManager extends EventEmitter {
     // Determine archive path based on URL
     const archiveExt = url.endsWith('.tgz') ? '.tgz' : url.endsWith('.zip') ? '.zip' : '.tar.zst';
     const archivePath = path.join(this.ollamaDir, `ollama${archiveExt}`);
-    console.info('[ollama] Archive path:', archivePath);
 
     try {
       // Download the archive
-      console.info('[ollama] Starting download...');
       await this.downloadFile(url, archivePath, (downloaded, total) => {
         const progress: DownloadProgress = {
           type: 'ollama',
@@ -195,32 +176,23 @@ class OllamaManager extends EventEmitter {
           total,
           status: 'downloading',
         };
-        if (downloaded % (1024 * 1024 * 10) < 1024 * 100) { // Log every ~10MB
-          console.info('[ollama] Download progress:', progress.percent + '%', `(${Math.round(downloaded / 1024 / 1024)}MB / ${Math.round(total / 1024 / 1024)}MB)`);
-        }
         onProgress?.(progress);
         this.emit('download-progress', progress);
       });
-      console.info('[ollama] Download complete, extracting...');
 
       // Extract the binary from the archive
       await this.extractBinary(archivePath, platform);
-      console.info('[ollama] Extraction complete');
 
       // Clean up archive
       await fs.unlink(archivePath).catch(() => { /* ignore */ });
-      console.info('[ollama] Archive cleaned up');
 
       // Make binary executable on Unix systems
       if (process.platform !== 'win32') {
         await fs.chmod(this.binaryPath, 0o755);
-        console.info('[ollama] Set executable permissions');
       }
 
       // Verify binary exists
       const exists = await this.isBinaryInstalled();
-      console.info('[ollama] Binary installed:', exists);
-
       if (!exists) {
         throw new Error('Binary extraction failed - file not found after extraction');
       }
@@ -236,9 +208,7 @@ class OllamaManager extends EventEmitter {
       this.emit('download-progress', completeProgress);
 
       await this.checkStatus();
-      console.info('[ollama] Download and setup complete');
     } catch (error) {
-      console.error('[ollama] Download failed:', error);
       const errorProgress: DownloadProgress = {
         type: 'ollama',
         percent: 0,
@@ -278,17 +248,14 @@ class OllamaManager extends EventEmitter {
             const stat = await fs.stat(filePath);
             if (stat.isDirectory()) {
               const subFiles = await fs.readdir(filePath);
-              console.info('[ollama] Contents of', file + ':', subFiles);
               const ollamaBin = subFiles.find(f => f === 'ollama' || f === 'ollama.exe');
               if (ollamaBin) {
                 const srcPath = path.join(filePath, ollamaBin);
-                console.info('[ollama] Moving binary from', srcPath, 'to', this.binaryPath);
                 await fs.rename(srcPath, this.binaryPath);
                 break;
               }
             } else if (file === 'ollama') {
               // Binary is directly extracted
-              console.info('[ollama] Binary found directly at:', filePath);
               if (filePath !== this.binaryPath) {
                 await fs.rename(filePath, this.binaryPath);
               }
@@ -297,18 +264,14 @@ class OllamaManager extends EventEmitter {
           }
         }
       } catch (error) {
-        console.error('[ollama] tar extraction failed:', error);
         throw new Error(`Failed to extract archive: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     } else if (platform === 'win32') {
-      // Windows: .zip file - use PowerShell
-      console.info('[ollama] Using PowerShell to extract .zip');
       try {
         execSync(`powershell -Command "Expand-Archive -Path '${archivePath}' -DestinationPath '${this.ollamaDir}' -Force"`, { stdio: 'pipe' });
-        
+
         // Find and move the binary
         const files = await fs.readdir(this.ollamaDir);
-        console.info('[ollama] Extracted files:', files);
         
         for (const file of files) {
           if (file.endsWith('.exe') && file.toLowerCase().includes('ollama')) {
@@ -320,17 +283,13 @@ class OllamaManager extends EventEmitter {
           }
         }
       } catch (error) {
-        console.error('[ollama] PowerShell extraction failed:', error);
         throw new Error(`Failed to extract archive: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     } else {
-      // Linux: .tar.zst file - requires zstd
-      console.info('[ollama] Using tar with zstd to extract .tar.zst');
       try {
         execSync(`tar --zstd -xf "${archivePath}" -C "${this.ollamaDir}"`, { stdio: 'pipe' });
-        
+
         const files = await fs.readdir(this.ollamaDir);
-        console.info('[ollama] Extracted files:', files);
         
         // Find the ollama binary
         for (const file of files) {
@@ -355,7 +314,6 @@ class OllamaManager extends EventEmitter {
           }
         }
       } catch (error) {
-        console.error('[ollama] tar/zstd extraction failed:', error);
         throw new Error(`Failed to extract archive: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
@@ -497,7 +455,6 @@ class OllamaManager extends EventEmitter {
 
   async startServer(): Promise<void> {
     if (this.serverProcess) {
-      console.info('[ollama] Server already running');
       return;
     }
 
@@ -505,8 +462,6 @@ class OllamaManager extends EventEmitter {
       throw new Error('Ollama binary not installed');
     }
 
-    console.info('[ollama] Starting server...');
-    
     this.serverProcess = spawn(this.binaryPath, ['serve'], {
       env: {
         ...process.env,
@@ -543,7 +498,6 @@ class OllamaManager extends EventEmitter {
   private async waitForServer(maxAttempts = 30): Promise<void> {
     for (let i = 0; i < maxAttempts; i++) {
       if (await this.isServerRunning()) {
-        console.info('[ollama] Server is ready');
         return;
       }
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -555,8 +509,6 @@ class OllamaManager extends EventEmitter {
     if (!this.serverProcess) {
       return;
     }
-
-    console.info('[ollama] Stopping server...');
 
     return new Promise((resolve) => {
       if (!this.serverProcess) {
@@ -583,23 +535,17 @@ class OllamaManager extends EventEmitter {
   }
 
   async restartServer(): Promise<void> {
-    console.info('[ollama] Restarting server...');
     await this.stopServer();
     await this.startServer();
     await this.checkStatus();
   }
 
   async deleteModel(): Promise<void> {
-    console.info('[ollama] Deleting model:', OLLAMA_MODEL);
-
     // Start server if not running
     if (!(await this.isServerRunning())) {
-      console.info('[ollama] Server not running, starting it for model deletion...');
       await this.startServer();
       await this.waitForServer();
     }
-
-    console.info('[ollama] Server is running, proceeding with model deletion...');
 
     return new Promise((resolve, reject) => {
       const modelData = JSON.stringify({ name: OLLAMA_MODEL });
@@ -618,12 +564,10 @@ class OllamaManager extends EventEmitter {
           timeout: 30000,
         },
         (res: any) => {
-          console.info('[ollama] Delete response status:', res.statusCode);
           let body = '';
           res.on('data', (chunk: any) => { body += chunk; });
           res.on('end', () => {
             if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-              console.info('[ollama] Model deleted successfully');
               this.checkStatus().then(() => resolve());
             } else {
               reject(new Error(`Failed to delete model: ${res.statusCode} ${res.statusMessage}`));
@@ -648,22 +592,17 @@ class OllamaManager extends EventEmitter {
   }
 
   async deleteBinary(): Promise<void> {
-    console.info('[ollama] Deleting Ollama binary...');
-
     // Stop the server first if it's running
     if (this.serverProcess || (await this.isServerRunning())) {
-      console.info('[ollama] Stopping server before deletion...');
       await this.stopServer();
     }
 
     // Delete the binary file
     try {
       await fs.unlink(this.binaryPath);
-      console.info('[ollama] Binary deleted successfully');
     } catch (error) {
       const nodeError = error as NodeJS.ErrnoException;
       if (nodeError.code !== 'ENOENT') {
-        console.error('[ollama] Failed to delete binary:', nodeError);
         throw new Error(`Failed to delete binary: ${nodeError.message}`);
       }
     }
@@ -674,7 +613,6 @@ class OllamaManager extends EventEmitter {
       const archivePath = path.join(this.ollamaDir, `ollama${ext}`);
       try {
         await fs.unlink(archivePath);
-        console.info('[ollama] Cleaned up archive:', archivePath);
       } catch {
         // Ignore if file doesn't exist
       }
@@ -685,16 +623,12 @@ class OllamaManager extends EventEmitter {
       const files = await fs.readdir(this.ollamaDir);
       if (files.length === 0) {
         await fs.rmdir(this.ollamaDir);
-        console.info('[ollama] Ollama directory removed (was empty)');
-      } else {
-        console.info('[ollama] Ollama directory kept, contains:', files);
       }
     } catch {
       // Ignore errors
     }
 
     await this.checkStatus();
-    console.info('[ollama] Binary deletion complete');
   }
 
   async generateTags(imagePath: string): Promise<string> {
@@ -746,14 +680,10 @@ class OllamaManager extends EventEmitter {
     destPath: string,
     onProgress: (downloaded: number, total: number) => void
   ): Promise<void> {
-    console.info('[ollama] downloadFile called with URL:', url);
-    console.info('[ollama] Destination:', destPath);
-    
     return new Promise((resolve, reject) => {
       const handleRedirect = (response: http.IncomingMessage, currentUrl: string) => {
         if (response.statusCode === 301 || response.statusCode === 302 || response.statusCode === 307) {
           const redirectUrl = response.headers.location;
-          console.info('[ollama] Redirect', response.statusCode, 'from', currentUrl, 'to', redirectUrl);
           if (redirectUrl) {
             this.downloadFile(redirectUrl, destPath, onProgress)
               .then(resolve)
@@ -765,27 +695,21 @@ class OllamaManager extends EventEmitter {
       };
 
       const makeRequest = (targetUrl: string) => {
-        console.info('[ollama] Making request to:', targetUrl);
         const protocol = targetUrl.startsWith('https') ? https : http;
-        
+
         protocol.get(targetUrl, (response) => {
-          console.info('[ollama] Response status:', response.statusCode, response.statusMessage);
-          console.info('[ollama] Response headers:', JSON.stringify(response.headers, null, 2));
-          
           if (handleRedirect(response, targetUrl)) return;
 
           if (response.statusCode !== 200) {
-            console.error('[ollama] Download failed with status:', response.statusCode, response.statusMessage);
             reject(new Error(`Failed to download: ${response.statusCode} ${response.statusMessage}`));
             return;
           }
 
           const totalSize = parseInt(response.headers['content-length'] || '0', 10);
           let downloadedSize = 0;
-          console.info('[ollama] Starting download, total size:', totalSize, 'bytes', '(' + Math.round(totalSize / 1024 / 1024) + 'MB)');
 
           const fileStream = fss.createWriteStream(destPath);
-          
+
           response.on('data', (chunk: Buffer) => {
             downloadedSize += chunk.length;
             onProgress(downloadedSize, totalSize);
@@ -794,24 +718,20 @@ class OllamaManager extends EventEmitter {
           response.pipe(fileStream);
 
           fileStream.on('finish', () => {
-            console.info('[ollama] File download finished, total downloaded:', downloadedSize, 'bytes');
             fileStream.close();
             resolve();
           });
 
           fileStream.on('error', (error) => {
-            console.error('[ollama] File stream error:', error);
-            fss.unlink(destPath, () => { /* ignore cleanup errors */ }); // Clean up partial file
+            fss.unlink(destPath, () => { /* ignore cleanup errors */ });
             reject(error);
           });
 
           response.on('error', (error) => {
-            console.error('[ollama] Response stream error:', error);
             fss.unlink(destPath, () => { /* ignore cleanup errors */ });
             reject(error);
           });
         }).on('error', (error) => {
-          console.error('[ollama] Request error:', error);
           reject(error);
         });
       };

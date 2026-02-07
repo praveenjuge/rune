@@ -24,7 +24,6 @@
     "@electron-forge/plugin-vite": "^7.11.1",
     "@electron-forge/publisher-github": "^7.11.1",
     "@electron/fuses": "^2.0.0",
-    "@types/electron-squirrel-startup": "^1.0.2",
     "@types/react": "^19.2.13",
     "@types/react-dom": "^19.2.3",
     "@typescript-eslint/eslint-plugin": "^8.54.0",
@@ -40,7 +39,6 @@
   "dependencies": {
     "@ant-design/colors": "^8.0.1",
     "antd": "^6.2.3",
-    "electron-squirrel-startup": "^1.0.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   }
