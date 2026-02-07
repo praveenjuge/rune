@@ -196,7 +196,7 @@ export function ConfigModal({
         <Divider style={{ margin: 1 }} />
 
         {/* App Updates */}
-        <Flex justify="space-between" align="center">
+        <Flex justify="space-between" align="center" gap={4}>
           <Text type="secondary" strong>
             Updates
           </Text>
@@ -410,7 +410,7 @@ function AppUpdateSection({
 
   return (
     <Flex align="center" justify="space-between">
-      <Space>
+      <Flex align="center" gap={4}>
         <Text type="secondary">v{currentVersion || "..."}</Text>
 
         {isDownloaded && <Badge status="success" text="Update Ready" />}
@@ -421,9 +421,9 @@ function AppUpdateSection({
             <Text type="danger">Update check failed</Text>
           </Tooltip>
         )}
-      </Space>
+      </Flex>
 
-      <Space size="small">
+      <Flex align="center" gap={4}>
         {(isChecking || isDownloading) && (
           <Space size="small">
             <LoadingOutlined spin />
@@ -470,7 +470,7 @@ function AppUpdateSection({
             Restart & Update
           </Button>
         )}
-      </Space>
+      </Flex>
     </Flex>
   );
 }
