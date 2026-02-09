@@ -30,7 +30,7 @@ export function Header({
   };
 
   return (
-    <Layout.Header onClick={handleHeaderClick}>
+    <header onClick={handleHeaderClick}>
       <Space.Compact block>
         <Input.Search
           ref={searchInputRef}
@@ -51,6 +51,6 @@ export function Header({
           <Button onClick={onOpenSettings} icon={<SettingOutlined />} />
         </Tooltip>
       </Space.Compact>
-    </Layout.Header>
+    </header>
   );
 }
