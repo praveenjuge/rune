@@ -100,7 +100,7 @@ function AppContent() {
         searchInputRef={searchInputRef}
       />
 
-      <Content style={{ overflowY: "auto", paddingBlock: token.paddingSM }}>
+      <Content style={{ padding: token.paddingSM }}>
         <Flex vertical>
           {isBootstrapping || (isSearching && images.length === 0) ? (
             <LoadingState />

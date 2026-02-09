@@ -256,11 +256,7 @@ function OllamaBinarySetup({
             {formatBytes(ollamaProgress.downloaded)} /{" "}
             {formatBytes(ollamaProgress.total)}
           </Text>
-          <Progress
-            percent={ollamaProgress.percent}
-            size="small"
-            style={{ width: 60 }}
-          />
+          <Progress percent={ollamaProgress.percent} size="small" />
         </Space>
       </Flex>
     );
