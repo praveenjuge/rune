@@ -94,13 +94,9 @@ export function ConfigModal({
       footer={null}
       width={600}
     >
-      <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
+      <Flex orientation="vertical" gap={26}>
         {showWelcome && (
-          <Space
-            orientation="vertical"
-            size="middle"
-            style={{ marginBottom: 16 }}
-          >
+          <Space orientation="vertical" size="middle">
             <Alert
               banner
               message="Welcome to Rune! Your library folder has been set to Documents/Rune."
@@ -109,14 +105,10 @@ export function ConfigModal({
             <Steps
               size="small"
               current={setupStep}
-              items={[
-                { title: "Download Model" },
-                { title: "Ready" },
-              ]}
+              items={[{ title: "Download Model" }, { title: "Ready" }]}
             />
           </Space>
         )}
-        <Divider style={{ margin: 1 }} />
         {/* Library folder */}
         <Flex align="center" justify="space-between">
           <Text type="secondary" strong>
@@ -126,8 +118,6 @@ export function ConfigModal({
             {libraryPath || defaultPath}
           </Button>
         </Flex>
-
-        <Divider style={{ margin: 1 }} />
 
         {/* Models */}
         <OllamaModelSetup
@@ -142,8 +132,6 @@ export function ConfigModal({
           onDeleteOllamaModel={onDeleteOllamaModel}
           onSetCurrentModel={onSetCurrentModel}
         />
-
-        <Divider style={{ margin: 1 }} />
 
         {/* Theme */}
         <Flex justify="space-between" align="center">
@@ -161,8 +149,6 @@ export function ConfigModal({
           />
         </Flex>
 
-        <Divider style={{ margin: 1 }} />
-
         {/* App Updates */}
         <Flex justify="space-between" align="center" gap={4}>
           <Text type="secondary" strong>
@@ -175,21 +161,11 @@ export function ConfigModal({
             onInstallUpdate={onInstallUpdate}
           />
         </Flex>
-      </Space>
 
-      {status && (
-        <Alert message={status} type="error" style={{ marginTop: 16 }} />
-      )}
+        {status && <Alert message={status} type="error" />}
+      </Flex>
     </Modal>
   );
-}
-
-function formatBytes(bytes: number) {
-  if (bytes === 0) return "0 B";
-  const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
 function OllamaModelSetup({
@@ -354,7 +330,7 @@ function VlModelList({
   };
 
   return (
-    <Flex vertical gap={2} style={{ width: "100%" }}>
+    <Flex vertical gap={2}>
       <Text type="secondary" strong>
         Models
       </Text>
