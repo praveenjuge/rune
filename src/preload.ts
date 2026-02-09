@@ -23,12 +23,9 @@ contextBridge.exposeInMainWorld('rune', {
   
   // Ollama APIs
   getOllamaStatus: () => ipcRenderer.invoke(IPC_CHANNELS.getOllamaStatus),
-  downloadOllama: () => ipcRenderer.invoke(IPC_CHANNELS.downloadOllama),
   downloadModel: (model?: string) => ipcRenderer.invoke(IPC_CHANNELS.downloadModel, model),
   cancelModelDownload: () => ipcRenderer.invoke(IPC_CHANNELS.cancelModelDownload),
-  restartOllama: () => ipcRenderer.invoke(IPC_CHANNELS.restartOllama),
   deleteOllamaModel: (model?: string) => ipcRenderer.invoke(IPC_CHANNELS.deleteOllamaModel, model),
-  deleteOllamaBinary: () => ipcRenderer.invoke(IPC_CHANNELS.deleteOllamaBinary),
   getAvailableVlModels: () => ipcRenderer.invoke(IPC_CHANNELS.getAvailableVlModels),
   getCurrentModel: () => ipcRenderer.invoke(IPC_CHANNELS.getCurrentModel),
   setCurrentModel: (model: string) => ipcRenderer.invoke(IPC_CHANNELS.setCurrentModel, model),
@@ -43,13 +40,8 @@ contextBridge.exposeInMainWorld('rune', {
   installUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.updateInstall),
   getUpdateStatus: () => ipcRenderer.invoke(IPC_CHANNELS.updateGetStatus),
   getVersion: () => ipcRenderer.invoke(IPC_CHANNELS.updateGetVersion),
-  
+
   // Event listeners
-  onOllamaDownloadProgress: (callback: (progress: DownloadProgress) => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, progress: DownloadProgress) => callback(progress);
-    ipcRenderer.on(IPC_EVENTS.ollamaDownloadProgress, listener);
-    return () => ipcRenderer.removeListener(IPC_EVENTS.ollamaDownloadProgress, listener);
-  },
   onModelDownloadProgress: (callback: (progress: DownloadProgress) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, progress: DownloadProgress) => callback(progress);
     ipcRenderer.on(IPC_EVENTS.modelDownloadProgress, listener);

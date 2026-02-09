@@ -1,9 +1,8 @@
 import { app } from 'electron';
-import { spawn, ChildProcess, execSync } from 'node:child_process';
+import { spawn, ChildProcess } from 'node:child_process';
 import fs from 'node:fs/promises';
-import fss, { constants as fsConstants } from 'node:fs';
+import { constants as fsConstants } from 'node:fs';
 import path from 'node:path';
-import https from 'node:https';
 import http from 'node:http';
 import { EventEmitter } from 'node:events';
 import {
@@ -12,33 +11,33 @@ import {
   DEFAULT_MODEL,
 } from '../../shared/library';
 
-// Ollama version to download
-const OLLAMA_VERSION = 'v0.15.4';
-
-// Platform-specific Ollama download URLs (archives that need extraction)
-const OLLAMA_RELEASES = {
-  darwin: {
-    x64: `https://github.com/ollama/ollama/releases/download/${OLLAMA_VERSION}/ollama-darwin.tgz`,
-    arm64: `https://github.com/ollama/ollama/releases/download/${OLLAMA_VERSION}/ollama-darwin.tgz`,
-  },
-  win32: {
-    x64: `https://github.com/ollama/ollama/releases/download/${OLLAMA_VERSION}/ollama-windows-amd64.zip`,
-    arm64: `https://github.com/ollama/ollama/releases/download/${OLLAMA_VERSION}/ollama-windows-arm64.zip`,
-  },
-  linux: {
-    x64: `https://github.com/ollama/ollama/releases/download/${OLLAMA_VERSION}/ollama-linux-amd64.tar.zst`,
-    arm64: `https://github.com/ollama/ollama/releases/download/${OLLAMA_VERSION}/ollama-linux-arm64.tar.zst`,
-  },
-};
-
 const OLLAMA_PORT = 11434;
 const OLLAMA_HOST = `http://127.0.0.1:${OLLAMA_PORT}`;
+
+/**
+ * Get the Ollama binary path.
+ * In production: app.getAppPath()/../Resources/bin/ollama/ollama
+ * In development: projectRoot/bin/ollama/ollama
+ */
+function getBinaryPath(): string {
+  const ext = process.platform === 'win32' ? '.exe' : '';
+
+  // Check if we're in production (packaged app)
+  // In production, the binary is in the app's Resources directory
+  if (app.isPackaged) {
+    const resourcesPath = path.join(process.resourcesPath, 'bin', 'ollama', `ollama${ext}`);
+    return resourcesPath;
+  }
+
+  // In development, use the bin/ollama directory in the project root
+  const projectRoot = process.cwd();
+  return path.join(projectRoot, 'bin', 'ollama', `ollama${ext}`);
+}
 
 class OllamaManager extends EventEmitter {
   private ollamaDir: string;
   private binaryPath: string;
   private serverProcess: ChildProcess | null = null;
-  private isDownloadingBinary = false;
   private isDownloadingModel = false;
   private modelDownloadAbortController: AbortController | null = null;
   private currentModel: string = DEFAULT_MODEL;
@@ -52,8 +51,8 @@ class OllamaManager extends EventEmitter {
   constructor() {
     super();
     this.ollamaDir = path.join(app.getPath('userData'), 'ollama');
-    const ext = process.platform === 'win32' ? '.exe' : '';
-    this.binaryPath = path.join(this.ollamaDir, `ollama${ext}`);
+    // Binary is bundled with the app, so it's always "installed"
+    this.binaryPath = getBinaryPath();
   }
 
   async initialize(): Promise<void> {
@@ -75,9 +74,7 @@ class OllamaManager extends EventEmitter {
     }
 
     let status: OllamaStatus['status'] = 'not-installed';
-    if (this.isDownloadingBinary) {
-      status = 'downloading-binary';
-    } else if (this.isDownloadingModel) {
+    if (this.isDownloadingModel) {
       status = 'downloading-model';
     } else if (binaryInstalled && modelInstalled && serverRunning) {
       status = 'running';
@@ -102,11 +99,20 @@ class OllamaManager extends EventEmitter {
   }
 
   private async isBinaryInstalled(): Promise<boolean> {
+    // Binary is bundled with the app, so it's always installed
     try {
       await fs.access(this.binaryPath, fsConstants.X_OK);
       return true;
     } catch {
-      return false;
+      // Fallback: check if binary exists at userData location for backward compatibility
+      const legacyPath = path.join(this.ollamaDir, process.platform === 'win32' ? 'ollama.exe' : 'ollama');
+      try {
+        await fs.access(legacyPath, fsConstants.X_OK);
+        this.binaryPath = legacyPath;
+        return true;
+      } catch {
+        return false;
+      }
     }
   }
 
@@ -161,189 +167,6 @@ class OllamaManager extends EventEmitter {
       return (data.models || []).map((m) => m.name);
     } catch {
       return [];
-    }
-  }
-
-  async downloadBinary(
-    onProgress?: (progress: DownloadProgress) => void
-  ): Promise<void> {
-    if (this.isDownloadingBinary) {
-      throw new Error('Already downloading Ollama binary');
-    }
-
-    const platform = process.platform as keyof typeof OLLAMA_RELEASES;
-    const arch = process.arch as 'x64' | 'arm64';
-
-    const platformUrls = OLLAMA_RELEASES[platform];
-    if (!platformUrls) {
-      throw new Error(`Unsupported platform: ${platform}`);
-    }
-
-    const url = platformUrls[arch];
-    if (!url) {
-      throw new Error(`Unsupported architecture: ${arch}`);
-    }
-
-    this.isDownloadingBinary = true;
-    this.currentStatus.status = 'downloading-binary';
-
-    // Ensure ollama directory exists
-    await fs.mkdir(this.ollamaDir, { recursive: true });
-
-    // Determine archive path based on URL
-    const archiveExt = url.endsWith('.tgz') ? '.tgz' : url.endsWith('.zip') ? '.zip' : '.tar.zst';
-    const archivePath = path.join(this.ollamaDir, `ollama${archiveExt}`);
-
-    try {
-      // Download the archive
-      await this.downloadFile(url, archivePath, (downloaded, total) => {
-        const progress: DownloadProgress = {
-          type: 'ollama',
-          percent: total > 0 ? Math.round((downloaded / total) * 100) : 0,
-          downloaded,
-          total,
-          status: 'downloading',
-        };
-        onProgress?.(progress);
-        this.emit('download-progress', progress);
-      });
-
-      // Extract the binary from the archive
-      await this.extractBinary(archivePath, platform);
-
-      // Clean up archive
-      await fs.unlink(archivePath).catch(() => { /* ignore */ });
-
-      // Make binary executable on Unix systems
-      if (process.platform !== 'win32') {
-        await fs.chmod(this.binaryPath, 0o755);
-      }
-
-      // Verify binary exists
-      const exists = await this.isBinaryInstalled();
-      if (!exists) {
-        throw new Error('Binary extraction failed - file not found after extraction');
-      }
-
-      const completeProgress: DownloadProgress = {
-        type: 'ollama',
-        percent: 100,
-        downloaded: 0,
-        total: 0,
-        status: 'complete',
-      };
-      onProgress?.(completeProgress);
-      this.emit('download-progress', completeProgress);
-
-      await this.checkStatus();
-    } catch (error) {
-      const errorProgress: DownloadProgress = {
-        type: 'ollama',
-        percent: 0,
-        downloaded: 0,
-        total: 0,
-        status: 'error',
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
-      onProgress?.(errorProgress);
-      this.emit('download-progress', errorProgress);
-      throw error;
-    } finally {
-      this.isDownloadingBinary = false;
-    }
-  }
-
-  private async extractBinary(archivePath: string, platform: string): Promise<void> {
-    console.info('[ollama] Extracting from:', archivePath);
-    
-    if (platform === 'darwin') {
-      // macOS: .tgz file - use tar command
-      console.info('[ollama] Using tar to extract .tgz');
-      try {
-        execSync(`tar -xzf "${archivePath}" -C "${this.ollamaDir}"`, { stdio: 'pipe' });
-        
-        // List extracted contents for debugging
-        const files = await fs.readdir(this.ollamaDir);
-        console.info('[ollama] Extracted files:', files);
-        
-        // The ollama binary should be directly in the extracted contents
-        // Check if it exists, if not look for it in subdirectories
-        const binaryExists = await fs.access(this.binaryPath).then(() => true).catch(() => false);
-        if (!binaryExists) {
-          // Look for the binary in extracted directories
-          for (const file of files) {
-            const filePath = path.join(this.ollamaDir, file);
-            const stat = await fs.stat(filePath);
-            if (stat.isDirectory()) {
-              const subFiles = await fs.readdir(filePath);
-              const ollamaBin = subFiles.find(f => f === 'ollama' || f === 'ollama.exe');
-              if (ollamaBin) {
-                const srcPath = path.join(filePath, ollamaBin);
-                await fs.rename(srcPath, this.binaryPath);
-                break;
-              }
-            } else if (file === 'ollama') {
-              // Binary is directly extracted
-              if (filePath !== this.binaryPath) {
-                await fs.rename(filePath, this.binaryPath);
-              }
-              break;
-            }
-          }
-        }
-      } catch (error) {
-        throw new Error(`Failed to extract archive: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
-    } else if (platform === 'win32') {
-      try {
-        execSync(`powershell -Command "Expand-Archive -Path '${archivePath}' -DestinationPath '${this.ollamaDir}' -Force"`, { stdio: 'pipe' });
-
-        // Find and move the binary
-        const files = await fs.readdir(this.ollamaDir);
-        
-        for (const file of files) {
-          if (file.endsWith('.exe') && file.toLowerCase().includes('ollama')) {
-            const srcPath = path.join(this.ollamaDir, file);
-            if (srcPath !== this.binaryPath) {
-              await fs.rename(srcPath, this.binaryPath);
-            }
-            break;
-          }
-        }
-      } catch (error) {
-        throw new Error(`Failed to extract archive: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
-    } else {
-      try {
-        execSync(`tar --zstd -xf "${archivePath}" -C "${this.ollamaDir}"`, { stdio: 'pipe' });
-
-        const files = await fs.readdir(this.ollamaDir);
-        
-        // Find the ollama binary
-        for (const file of files) {
-          const filePath = path.join(this.ollamaDir, file);
-          const stat = await fs.stat(filePath);
-          if (stat.isDirectory() && file.includes('ollama')) {
-            const subFiles = await fs.readdir(filePath);
-            const binDir = path.join(filePath, 'bin');
-            if (await fs.access(binDir).then(() => true).catch(() => false)) {
-              const binFiles = await fs.readdir(binDir);
-              const ollamaBin = binFiles.find(f => f === 'ollama');
-              if (ollamaBin) {
-                await fs.rename(path.join(binDir, ollamaBin), this.binaryPath);
-                break;
-              }
-            }
-          } else if (file === 'ollama') {
-            if (filePath !== this.binaryPath) {
-              await fs.rename(filePath, this.binaryPath);
-            }
-            break;
-          }
-        }
-      } catch (error) {
-        throw new Error(`Failed to extract archive: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
     }
   }
 
@@ -651,46 +474,6 @@ class OllamaManager extends EventEmitter {
     });
   }
 
-  async deleteBinary(): Promise<void> {
-    // Stop the server first if it's running
-    if (this.serverProcess || (await this.isServerRunning())) {
-      await this.stopServer();
-    }
-
-    // Delete the binary file
-    try {
-      await fs.unlink(this.binaryPath);
-    } catch (error) {
-      const nodeError = error as NodeJS.ErrnoException;
-      if (nodeError.code !== 'ENOENT') {
-        throw new Error(`Failed to delete binary: ${nodeError.message}`);
-      }
-    }
-
-    // Clean up any leftover archive files
-    const extensions = ['.tgz', '.zip', '.tar.zst'];
-    for (const ext of extensions) {
-      const archivePath = path.join(this.ollamaDir, `ollama${ext}`);
-      try {
-        await fs.unlink(archivePath);
-      } catch {
-        // Ignore if file doesn't exist
-      }
-    }
-
-    // Try to clean up the directory if it's empty (but don't force it)
-    try {
-      const files = await fs.readdir(this.ollamaDir);
-      if (files.length === 0) {
-        await fs.rmdir(this.ollamaDir);
-      }
-    } catch {
-      // Ignore errors
-    }
-
-    await this.checkStatus();
-  }
-
   async generateTags(imagePath: string, model?: string): Promise<string> {
     const targetModel = model || this.currentModel;
 
@@ -737,71 +520,6 @@ class OllamaManager extends EventEmitter {
     return tags;
   }
 
-  private async downloadFile(
-    url: string,
-    destPath: string,
-    onProgress: (downloaded: number, total: number) => void
-  ): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const handleRedirect = (response: http.IncomingMessage, currentUrl: string) => {
-        if (response.statusCode === 301 || response.statusCode === 302 || response.statusCode === 307) {
-          const redirectUrl = response.headers.location;
-          if (redirectUrl) {
-            this.downloadFile(redirectUrl, destPath, onProgress)
-              .then(resolve)
-              .catch(reject);
-            return true;
-          }
-        }
-        return false;
-      };
-
-      const makeRequest = (targetUrl: string) => {
-        const protocol = targetUrl.startsWith('https') ? https : http;
-
-        protocol.get(targetUrl, (response) => {
-          if (handleRedirect(response, targetUrl)) return;
-
-          if (response.statusCode !== 200) {
-            reject(new Error(`Failed to download: ${response.statusCode} ${response.statusMessage}`));
-            return;
-          }
-
-          const totalSize = parseInt(response.headers['content-length'] || '0', 10);
-          let downloadedSize = 0;
-
-          const fileStream = fss.createWriteStream(destPath);
-
-          response.on('data', (chunk: Buffer) => {
-            downloadedSize += chunk.length;
-            onProgress(downloadedSize, totalSize);
-          });
-
-          response.pipe(fileStream);
-
-          fileStream.on('finish', () => {
-            fileStream.close();
-            resolve();
-          });
-
-          fileStream.on('error', (error) => {
-            fss.unlink(destPath, () => { /* ignore cleanup errors */ });
-            reject(error);
-          });
-
-          response.on('error', (error) => {
-            fss.unlink(destPath, () => { /* ignore cleanup errors */ });
-            reject(error);
-          });
-        }).on('error', (error) => {
-          reject(error);
-        });
-      };
-
-      makeRequest(url);
-    });
-  }
-
   private fetch(
     url: string,
     options: {
@@ -818,9 +536,8 @@ class OllamaManager extends EventEmitter {
   }> {
     return new Promise((resolve, reject) => {
       const urlObj = new URL(url);
-      const protocol = urlObj.protocol === 'https:' ? https : http;
 
-      const req = protocol.request(
+      const req = http.request(
         {
           hostname: urlObj.hostname,
           port: urlObj.port,
@@ -829,18 +546,18 @@ class OllamaManager extends EventEmitter {
           headers: options.headers,
           timeout: options.timeout || 30000,
         },
-        (res) => {
+        (res: any) => {
           const chunks: Buffer[] = [];
-          
+
           res.on('data', (chunk: Buffer) => chunks.push(chunk));
-          
+
           res.on('end', () => {
             const body = Buffer.concat(chunks);
             resolve({
               ok: res.statusCode ? res.statusCode >= 200 && res.statusCode < 300 : false,
               statusText: res.statusMessage || '',
               json: () => Promise.resolve(JSON.parse(body.toString())),
-              body: options.method === 'POST' && options.body?.includes('stream') 
+              body: options.method === 'POST' && options.body?.includes('stream')
                 ? (async function* () { yield body; })()
                 : null,
             });

@@ -283,13 +283,6 @@ app.whenReady().then(async () => {
   await ollamaManager.initialize();
 
   // Set up Ollama event listeners
-  ollamaManager.on('download-progress', (progress: DownloadProgress) => {
-    const windows = BrowserWindow.getAllWindows();
-    for (const win of windows) {
-      win.webContents.send(IPC_EVENTS.ollamaDownloadProgress, progress);
-    }
-  });
-
   ollamaManager.on('model-download-progress', (progress: DownloadProgress) => {
     const windows = BrowserWindow.getAllWindows();
     for (const win of windows) {
@@ -396,19 +389,6 @@ app.whenReady().then(async () => {
   );
 
   ipcMain.handle(
-    IPC_CHANNELS.downloadOllama,
-    async (): Promise<IpcResult<void>> => {
-      try {
-        await ollamaManager.downloadBinary();
-        return success(undefined);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to download Ollama';
-        return failure(message);
-      }
-    },
-  );
-
-  ipcMain.handle(
     IPC_CHANNELS.downloadModel,
     async (): Promise<IpcResult<void>> => {
       try {
@@ -444,19 +424,6 @@ app.whenReady().then(async () => {
   );
 
   ipcMain.handle(
-    IPC_CHANNELS.restartOllama,
-    async (): Promise<IpcResult<void>> => {
-      try {
-        await ollamaManager.restartServer();
-        return success(undefined);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to restart Ollama';
-        return failure(message);
-      }
-    },
-  );
-
-  ipcMain.handle(
     IPC_CHANNELS.deleteOllamaModel,
     async (): Promise<IpcResult<void>> => {
       try {
@@ -464,19 +431,6 @@ app.whenReady().then(async () => {
         return success(undefined);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to delete model';
-        return failure(message);
-      }
-    },
-  );
-
-  ipcMain.handle(
-    IPC_CHANNELS.deleteOllamaBinary,
-    async (): Promise<IpcResult<void>> => {
-      try {
-        await ollamaManager.deleteBinary();
-        return success(undefined);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to delete Ollama';
         return failure(message);
       }
     },

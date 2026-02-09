@@ -171,12 +171,9 @@ export const IPC_CHANNELS = {
   deleteImage: "rune:delete-image",
   // Ollama channels
   getOllamaStatus: "rune:ollama-status",
-  downloadOllama: "rune:download-ollama",
   downloadModel: "rune:download-model",
   cancelModelDownload: "rune:cancel-model-download",
-  restartOllama: "rune:restart-ollama",
   deleteOllamaModel: "rune:delete-ollama-model",
-  deleteOllamaBinary: "rune:delete-ollama-binary",
   getAvailableVlModels: "rune:get-available-vl-models",
   getCurrentModel: "rune:get-current-model",
   setCurrentModel: "rune:set-current-model",
@@ -192,7 +189,6 @@ export const IPC_CHANNELS = {
 } as const;
 
 export const IPC_EVENTS = {
-  ollamaDownloadProgress: "rune:ollama-download-progress",
   modelDownloadProgress: "rune:model-download-progress",
   taggingProgress: "rune:tagging-progress",
   imageTagsUpdated: "rune:image-tags-updated",

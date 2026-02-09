@@ -29,14 +29,10 @@ export function useAppState() {
     serverRunning: false,
     status: "not-installed",
   });
-  const [ollamaProgress, setOllamaProgress] =
-    useState<DownloadProgress | null>(null);
   const [modelProgress, setModelProgress] = useState<DownloadProgress | null>(
     null,
   );
-  const [isDownloadingOllama, setIsDownloadingOllama] = useState(false);
   const [isDownloadingModel, setIsDownloadingModel] = useState(false);
-  const [isRestartingOllama, setIsRestartingOllama] = useState(false);
 
   // Auto-update state
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
@@ -146,18 +142,6 @@ export function useAppState() {
     }
   };
 
-  const handleDownloadOllama = async () => {
-    setIsDownloadingOllama(true);
-    setOllamaProgress(null);
-    setStatus(null);
-
-    const result = await window.rune.downloadOllama();
-    if (result.ok === false) {
-      setStatus(result.error);
-      setIsDownloadingOllama(false);
-    }
-  };
-
   const handleDownloadModel = async (model?: string) => {
     setIsDownloadingModel(true);
     setModelProgress(null);
@@ -167,21 +151,6 @@ export function useAppState() {
     if (result.ok === false) {
       setStatus(result.error);
       setIsDownloadingModel(false);
-    }
-  };
-
-  const handleRestartOllama = async () => {
-    setIsRestartingOllama(true);
-    setStatus(null);
-
-    const result = await window.rune.restartOllama();
-    setIsRestartingOllama(false);
-
-    if (result.ok === false) {
-      setStatus(result.error);
-    } else {
-      // Refresh status after restart
-      window.rune.getOllamaStatus().then(setOllamaStatus);
     }
   };
 
@@ -202,18 +171,6 @@ export function useAppState() {
     const result = await window.rune.cancelModelDownload();
     if (result.ok === false) {
       setStatus(result.error);
-    }
-  };
-
-  const handleDeleteOllamaBinary = async () => {
-    setStatus(null);
-    const result = await window.rune.deleteOllamaBinary();
-
-    if (result.ok === false) {
-      setStatus(result.error);
-    } else {
-      // Refresh status after deletion
-      window.rune.getOllamaStatus().then(setOllamaStatus);
     }
   };
 
@@ -260,17 +217,6 @@ export function useAppState() {
 
   // Set up event listeners for Ollama progress and tag updates
   useEffect(() => {
-    const unsubOllama = window.rune.onOllamaDownloadProgress((progress) => {
-      setOllamaProgress(progress);
-      if (progress.status === "complete") {
-        setIsDownloadingOllama(false);
-        window.rune.getOllamaStatus().then(setOllamaStatus);
-      } else if (progress.status === "error") {
-        setIsDownloadingOllama(false);
-        setStatus(progress.error || "Failed to download Ollama");
-      }
-    });
-
     const unsubModel = window.rune.onModelDownloadProgress((progress) => {
       setModelProgress(progress);
       if (progress.status === "complete") {
@@ -295,7 +241,6 @@ export function useAppState() {
     window.rune.getUpdateStatus().then(setUpdateStatus);
 
     return () => {
-      unsubOllama();
       unsubModel();
       unsubUpdate();
     };
@@ -316,11 +261,8 @@ export function useAppState() {
     hasSeenWelcome,
     deletingId,
     ollamaStatus,
-    ollamaProgress,
     modelProgress,
-    isDownloadingOllama,
     isDownloadingModel,
-    isRestartingOllama,
     updateStatus,
     currentVersion,
     availableModels,
@@ -334,12 +276,9 @@ export function useAppState() {
     handleAddImages,
     handleDeleteImage,
     handleRetryTagging,
-    handleDownloadOllama,
     handleDownloadModel,
     handleCancelModelDownload,
-    handleRestartOllama,
     handleDeleteOllamaModel,
-    handleDeleteOllamaBinary,
     handleSetCurrentModel,
     handleCheckForUpdates,
     handleInstallUpdate,

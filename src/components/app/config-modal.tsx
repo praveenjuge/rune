@@ -3,7 +3,6 @@ import {
   Button,
   Badge,
   Flex,
-  Input,
   Modal,
   Popconfirm,
   Progress,
@@ -18,8 +17,6 @@ import {
   Divider,
 } from "antd";
 import {
-  CheckCircleOutlined,
-  DownloadOutlined,
   FolderOpenOutlined,
   LaptopOutlined,
   LoadingOutlined,
@@ -45,11 +42,8 @@ export function ConfigModal({
   defaultPath,
   status,
   ollamaStatus,
-  ollamaProgress,
   modelProgress,
-  isDownloadingOllama,
   isDownloadingModel,
-  isRestartingOllama,
   showWelcome,
   updateStatus,
   currentVersion,
@@ -58,12 +52,9 @@ export function ConfigModal({
   installedModels,
   onClose,
   onChooseFolder,
-  onDownloadOllama,
   onDownloadModel,
   onCancelModelDownload,
-  onRestartOllama,
   onDeleteOllamaModel,
-  onDeleteOllamaBinary,
   onSetCurrentModel,
   onCheckForUpdates,
   onInstallUpdate,
@@ -73,11 +64,8 @@ export function ConfigModal({
   defaultPath: string;
   status: string | null;
   ollamaStatus: OllamaStatus;
-  ollamaProgress: DownloadProgress | null;
   modelProgress: DownloadProgress | null;
-  isDownloadingOllama: boolean;
   isDownloadingModel: boolean;
-  isRestartingOllama: boolean;
   showWelcome: boolean;
   updateStatus: UpdateStatus;
   currentVersion: string;
@@ -86,23 +74,17 @@ export function ConfigModal({
   installedModels: string[];
   onClose: () => void;
   onChooseFolder: () => void;
-  onDownloadOllama: () => void;
   onDownloadModel: (model?: string) => void;
   onCancelModelDownload: () => void;
-  onRestartOllama: () => void;
   onDeleteOllamaModel: () => void;
-  onDeleteOllamaBinary: () => void;
   onSetCurrentModel: (model: string) => void;
   onCheckForUpdates: () => void;
   onInstallUpdate: () => void;
 }) {
   const { theme: currentTheme, setTheme } = useTheme();
 
-  const setupStep = !ollamaStatus.binaryInstalled
-    ? 0
-    : !ollamaStatus.modelInstalled
-      ? 1
-      : 2;
+  // Binary is bundled, so only check model installation
+  const setupStep = !ollamaStatus.modelInstalled ? 0 : 1;
 
   return (
     <Modal
@@ -128,7 +110,6 @@ export function ConfigModal({
               size="small"
               current={setupStep}
               items={[
-                { title: "Install Ollama" },
                 { title: "Download Model" },
                 { title: "Ready" },
               ]}
@@ -145,19 +126,6 @@ export function ConfigModal({
             {libraryPath || defaultPath}
           </Button>
         </Flex>
-
-        <Divider style={{ margin: 1 }} />
-
-        {/* Ollama Binary */}
-        <OllamaBinarySetup
-          status={ollamaStatus}
-          ollamaProgress={ollamaProgress}
-          isDownloadingOllama={isDownloadingOllama}
-          isRestartingOllama={isRestartingOllama}
-          onDownloadOllama={onDownloadOllama}
-          onRestartOllama={onRestartOllama}
-          onDeleteOllamaBinary={onDeleteOllamaBinary}
-        />
 
         <Divider style={{ margin: 1 }} />
 
@@ -224,108 +192,6 @@ function formatBytes(bytes: number) {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
-function OllamaBinarySetup({
-  status,
-  ollamaProgress,
-  isDownloadingOllama,
-  isRestartingOllama,
-  onDownloadOllama,
-  onRestartOllama,
-  onDeleteOllamaBinary,
-}: {
-  status: OllamaStatus;
-  ollamaProgress: DownloadProgress | null;
-  isDownloadingOllama: boolean;
-  isRestartingOllama: boolean;
-  onDownloadOllama: () => void;
-  onRestartOllama: () => void;
-  onDeleteOllamaBinary: () => void;
-}) {
-  const { modal } = App.useApp();
-  const { token } = theme.useToken();
-
-  if (isDownloadingOllama && ollamaProgress) {
-    return (
-      <Flex align="center" justify="space-between">
-        <Text type="secondary" strong>
-          Ollama
-        </Text>
-        <Space>
-          <LoadingOutlined spin />
-          <Text type="secondary">
-            {formatBytes(ollamaProgress.downloaded)} /{" "}
-            {formatBytes(ollamaProgress.total)}
-          </Text>
-          <Progress percent={ollamaProgress.percent} size="small" />
-        </Space>
-      </Flex>
-    );
-  }
-
-  if (!status.binaryInstalled) {
-    return (
-      <Flex align="center" justify="space-between">
-        <Text type="secondary" strong>
-          Ollama
-        </Text>
-        <Space size="small">
-          <Text type="secondary">Not installed</Text>
-          <Button
-            onClick={onDownloadOllama}
-            size="small"
-            icon={<DownloadOutlined />}
-          >
-            Download
-          </Button>
-        </Space>
-      </Flex>
-    );
-  }
-
-  return (
-    <Flex align="center" justify="space-between">
-      <Space>
-        <Text type="secondary" strong>
-          Ollama
-        </Text>
-        {status.serverRunning && <Tag color="green">Running</Tag>}
-      </Space>
-      <Space size="small">
-        <Tooltip title="Restart Ollama">
-          <Button
-            type="text"
-            size="small"
-            onClick={onRestartOllama}
-            disabled={isRestartingOllama}
-            icon={<ReloadOutlined spin={isRestartingOllama} />}
-          />
-        </Tooltip>
-        <Popconfirm
-          title="Delete Ollama?"
-          description="This will remove the Ollama binary."
-          okText="Delete"
-          cancelText="Cancel"
-          okButtonProps={{ danger: true }}
-          onConfirm={() => {
-            modal.confirm({
-              title: "Confirm delete",
-              content: "This action cannot be undone.",
-              okText: "Delete",
-              okType: "danger",
-              cancelText: "Cancel",
-              onOk: onDeleteOllamaBinary,
-            });
-          }}
-        >
-          <Tooltip title="Delete Ollama">
-            <Button type="text" size="small" danger icon={<DeleteOutlined />} />
-          </Tooltip>
-        </Popconfirm>
-      </Space>
-    </Flex>
-  );
-}
-
 function OllamaModelSetup({
   status,
   modelProgress,
@@ -351,17 +217,6 @@ function OllamaModelSetup({
 }) {
   const { modal } = App.useApp();
   const { token } = theme.useToken();
-
-  if (!status.binaryInstalled) {
-    return (
-      <Flex align="center" justify="space-between">
-        <Text type="secondary" strong>
-          Models
-        </Text>
-        <Text type="secondary">Install Ollama first</Text>
-      </Flex>
-    );
-  }
 
   return (
     <VlModelList

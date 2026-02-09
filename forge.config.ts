@@ -11,6 +11,7 @@ const config: ForgeConfig = {
     executableName: 'rune',
     asar: true,
     icon: 'assets/icon/rune.icns',
+    extraResource: ['bin/ollama'],
   },
   rebuildConfig: {},
   makers: [
