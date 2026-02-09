@@ -110,12 +110,12 @@ export function ConfigModal({
       onCancel={onClose}
       title="Settings"
       footer={null}
-      width={540}
+      width={600}
     >
-      <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+      <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
         {showWelcome && (
           <Space
-            direction="vertical"
+            orientation="vertical"
             size="middle"
             style={{ marginBottom: 16 }}
           >
@@ -292,14 +292,7 @@ function OllamaBinarySetup({
         <Text type="secondary" strong>
           Ollama
         </Text>
-        {status.serverRunning && (
-          <Tag
-            color="green"
-            style={{ margin: 0, fontSize: "11px", padding: "0 4px" }}
-          >
-            Running
-          </Tag>
-        )}
+        {status.serverRunning && <Tag color="green">Running</Tag>}
       </Space>
       <Space size="small">
         <Tooltip title="Restart Ollama">
@@ -409,7 +402,7 @@ function AppUpdateSection({
   const isNotAvailable = updateStatus.state === "not-available";
 
   return (
-    <Flex align="center" justify="space-between">
+    <Flex align="center" justify="space-between" gap={8}>
       <Flex align="center" gap={4}>
         <Text type="secondary">v{currentVersion || "..."}</Text>
 
@@ -534,47 +527,22 @@ function VlModelList({
           >
             <Flex align="center" justify="space-between">
               <Space size="small">
-                <Text style={{ fontSize: "13px" }}>{model.displayName}</Text>
-                {model.recommended && (
-                  <Tag
-                    color="blue"
-                    style={{ margin: 0, fontSize: "11px", padding: "0 4px" }}
-                  >
-                    Recommended
-                  </Tag>
-                )}
+                <Text>{model.displayName}</Text>
+                {model.recommended && <Tag color="blue">⭐</Tag>}
                 {installed && isCurrent && serverRunning && (
-                  <Tag
-                    color="green"
-                    style={{ margin: 0, fontSize: "11px", padding: "0 4px" }}
-                  >
-                    Active
-                  </Tag>
+                  <Tag color="green">Active</Tag>
                 )}
-                {installed && (
-                  <Tag
-                    color="default"
-                    style={{ margin: 0, fontSize: "11px", padding: "0 4px" }}
-                  >
-                    Downloaded
-                  </Tag>
-                )}
+                {installed && <Tag color="default">Downloaded</Tag>}
+                <Tag>{model.size}</Tag>
               </Space>
               <Space size={4}>
-                <Text type="secondary" style={{ fontSize: "11px" }}>
-                  {model.size}
-                </Text>
                 {isDownloadingModel && isCurrent && modelProgress ? (
                   <Space size="small">
                     <LoadingOutlined spin />
-                    <Text type="secondary" style={{ fontSize: "11px" }}>
+                    <Text type="secondary">
                       {Math.round(modelProgress.percent)}%
                     </Text>
-                    <Progress
-                      percent={modelProgress.percent}
-                      size="small"
-                      style={{ width: 50 }}
-                    />
+                    <Progress percent={modelProgress.percent} size="small" />
                     <Button
                       size="small"
                       onClick={(e) => {
@@ -592,11 +560,6 @@ function VlModelList({
                     onClick={(e) => {
                       e.stopPropagation();
                       onDownloadModel(model.name);
-                    }}
-                    style={{
-                      fontSize: "12px",
-                      height: "22px",
-                      padding: "0 8px",
                     }}
                   >
                     Download
@@ -624,9 +587,7 @@ function VlModelList({
                 )}
               </Space>
             </Flex>
-            <Text type="secondary" style={{ fontSize: "12px", marginTop: 2 }}>
-              {model.description}
-            </Text>
+            <Text type="secondary">{model.description}</Text>
           </Flex>
         );
       })}
